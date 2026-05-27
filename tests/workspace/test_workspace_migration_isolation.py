@@ -11,7 +11,7 @@ causing workspace A to receive workspace B's data, violating multi-tenant isolat
 import pytest
 from unittest.mock import AsyncMock
 
-from lightrag.kg.postgres_impl import PGVectorStorage
+from madrag.kg.postgres_impl import PGVectorStorage
 
 
 class TestWorkspaceMigrationIsolation:
@@ -35,9 +35,9 @@ class TestWorkspaceMigrationIsolation:
 
         # Mock table existence checks
         async def table_exists_side_effect(db_instance, name):
-            if name.lower() == "lightrag_doc_chunks":  # legacy
+            if name.lower() == "madrag_doc_chunks":  # legacy
                 return True
-            elif name.lower() == "lightrag_doc_chunks_model_1536d":  # new
+            elif name.lower() == "madrag_doc_chunks_model_1536d":  # new
                 return False  # New table doesn't exist initially
             return False
 
@@ -115,9 +115,9 @@ class TestWorkspaceMigrationIsolation:
 
         # Mock check_table_exists on db
         async def check_table_exists_side_effect(name):
-            if name.lower() == "lightrag_doc_chunks":  # legacy
+            if name.lower() == "madrag_doc_chunks":  # legacy
                 return True
-            elif name.lower() == "lightrag_doc_chunks_model_1536d":  # new
+            elif name.lower() == "madrag_doc_chunks_model_1536d":  # new
                 return False  # New table doesn't exist initially
             return False
 
@@ -161,11 +161,11 @@ class TestWorkspaceMigrationIsolation:
         with pytest.raises(ValueError, match="workspace must be provided"):
             await PGVectorStorage.setup_table(
                 db,
-                "lightrag_doc_chunks_model_1536d",
+                "madrag_doc_chunks_model_1536d",
                 workspace=None,  # No workspace - should raise ValueError
                 embedding_dim=1536,
-                legacy_table_name="lightrag_doc_chunks",
-                base_table="lightrag_doc_chunks",
+                legacy_table_name="madrag_doc_chunks",
+                base_table="madrag_doc_chunks",
             )
 
     async def test_no_cross_workspace_contamination(self):
@@ -195,9 +195,9 @@ class TestWorkspaceMigrationIsolation:
         ]
 
         async def table_exists_side_effect(db_instance, name):
-            if name.lower() == "lightrag_doc_chunks":  # legacy
+            if name.lower() == "madrag_doc_chunks":  # legacy
                 return True
-            elif name.lower() == "lightrag_doc_chunks_model_1536d":  # new
+            elif name.lower() == "madrag_doc_chunks_model_1536d":  # new
                 return False
             return False
 
@@ -256,9 +256,9 @@ class TestWorkspaceMigrationIsolation:
 
         # Mock check_table_exists on db
         async def check_table_exists_side_effect(name):
-            if name.lower() == "lightrag_doc_chunks":  # legacy
+            if name.lower() == "madrag_doc_chunks":  # legacy
                 return True
-            elif name.lower() == "lightrag_doc_chunks_model_1536d":  # new
+            elif name.lower() == "madrag_doc_chunks_model_1536d":  # new
                 return False
             return False
 

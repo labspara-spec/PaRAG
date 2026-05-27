@@ -1,4 +1,4 @@
-# CostPilot configuration for PaRAG
+# CostPilot configuration for madRAG
 # Copy to .costpilot.yaml and fill in your values.
 # Or run: costpilot init
 #
@@ -30,7 +30,7 @@ llm:
   #   region: eastus
 
 # Service health tracking.
-# PaRAG auto-detects Redis and Qdrant from REDIS_URI / QDRANT_URL
+# madRAG auto-detects Redis and Qdrant from REDIS_URI / QDRANT_URL
 # when using the auto-generated config. Override here for full control.
 services:
   redis:

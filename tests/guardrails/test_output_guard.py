@@ -1,8 +1,8 @@
 """Tests for OutputGuard — AITG-APP-05 and AITG-APP-12."""
 
 import pytest
-from lightrag.guardrails.output_guard import OutputGuard
-from lightrag.guardrails.base import ViolationType
+from madrag.guardrails.output_guard import OutputGuard
+from madrag.guardrails.base import ViolationType
 
 
 @pytest.fixture

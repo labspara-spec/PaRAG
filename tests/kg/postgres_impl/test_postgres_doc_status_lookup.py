@@ -11,8 +11,8 @@ from datetime import datetime
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from lightrag.kg.postgres_impl import PGDocStatusStorage
-from lightrag.namespace import NameSpace
+from madrag.kg.postgres_impl import PGDocStatusStorage
+from madrag.namespace import NameSpace
 
 
 def _make_storage():

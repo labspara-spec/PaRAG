@@ -10,9 +10,9 @@ import json
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
 
-from lightrag.kg.qdrant_impl import QdrantVectorDBStorage
-from lightrag.kg.postgres_impl import PGVectorStorage
-from lightrag.exceptions import DataMigrationError
+from madrag.kg.qdrant_impl import QdrantVectorDBStorage
+from madrag.kg.postgres_impl import PGVectorStorage
+from madrag.exceptions import DataMigrationError
 
 
 # Note: Tests should use proper table names that have DDL templates
@@ -42,10 +42,10 @@ class TestQdrantDimensionMismatch:
         # Setup collection existence checks
         def collection_exists_side_effect(name):
             if (
-                name == "lightrag_vdb_chunks"
+                name == "madrag_vdb_chunks"
             ):  # legacy (matches _find_legacy_collection pattern)
                 return True
-            elif name == "lightrag_chunks_model_3072d":  # new
+            elif name == "madrag_chunks_model_3072d":  # new
                 return False
             return False
 
@@ -55,15 +55,15 @@ class TestQdrantDimensionMismatch:
 
         # Patch _find_legacy_collection to return the legacy collection name
         with patch(
-            "lightrag.kg.qdrant_impl._find_legacy_collection",
-            return_value="lightrag_vdb_chunks",
+            "madrag.kg.qdrant_impl._find_legacy_collection",
+            return_value="madrag_vdb_chunks",
         ):
             # Call setup_collection with 3072d (different from legacy 1536d)
             # Should raise DataMigrationError due to dimension mismatch
             with pytest.raises(DataMigrationError) as exc_info:
                 QdrantVectorDBStorage.setup_collection(
                     client,
-                    "lightrag_chunks_model_3072d",
+                    "madrag_chunks_model_3072d",
                     namespace="chunks",
                     workspace="test",
                     vectors_config=models.VectorParams(
@@ -102,9 +102,9 @@ class TestQdrantDimensionMismatch:
         legacy_collection_info.config.params.vectors.size = 1536
 
         def collection_exists_side_effect(name):
-            if name == "lightrag_chunks":  # legacy
+            if name == "madrag_chunks":  # legacy
                 return True
-            elif name == "lightrag_chunks_model_1536d":  # new
+            elif name == "madrag_chunks_model_1536d":  # new
                 return False
             return False
 
@@ -125,9 +125,9 @@ class TestQdrantDimensionMismatch:
         # After migration: new collection has 1 record (matching migrated data)
         def count_side_effect(collection_name, **kwargs):
             result = MagicMock()
-            if collection_name == "lightrag_chunks":  # legacy
+            if collection_name == "madrag_chunks":  # legacy
                 result.count = 1  # Legacy has 1 record
-            elif collection_name == "lightrag_chunks_model_1536d":  # new
+            elif collection_name == "madrag_chunks_model_1536d":  # new
                 # Return 0 before migration, 1 after migration
                 result.count = 1 if migration_done["value"] else 0
             else:
@@ -145,13 +145,13 @@ class TestQdrantDimensionMismatch:
 
         # Mock _find_legacy_collection to return the legacy collection name
         with patch(
-            "lightrag.kg.qdrant_impl._find_legacy_collection",
-            return_value="lightrag_chunks",
+            "madrag.kg.qdrant_impl._find_legacy_collection",
+            return_value="madrag_chunks",
         ):
             # Call setup_collection with matching 1536d
             QdrantVectorDBStorage.setup_collection(
                 client,
-                "lightrag_chunks_model_1536d",
+                "madrag_chunks_model_1536d",
                 namespace="chunks",
                 workspace="test",
                 vectors_config=models.VectorParams(

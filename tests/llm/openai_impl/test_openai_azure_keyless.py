@@ -9,7 +9,7 @@ import pytest
 
 def _reload_openai_module():
     """Force reimport so module-level state doesn't bleed between tests."""
-    mod_name = "lightrag.llm.openai"
+    mod_name = "madrag.llm.openai"
     if mod_name in sys.modules:
         del sys.modules[mod_name]
     return importlib.import_module(mod_name)
@@ -24,7 +24,7 @@ class TestAzureKeylessAuth:
         mock_client_cls = MagicMock()
 
         with patch("openai.AsyncAzureOpenAI", mock_client_cls):
-            from lightrag.llm.openai import create_openai_async_client
+            from madrag.llm.openai import create_openai_async_client
 
             create_openai_async_client(
                 api_key="sk-test",
@@ -44,7 +44,7 @@ class TestAzureKeylessAuth:
         mock_client_cls = MagicMock()
 
         with patch("openai.AsyncAzureOpenAI", mock_client_cls):
-            from lightrag.llm.openai import create_openai_async_client
+            from madrag.llm.openai import create_openai_async_client
 
             create_openai_async_client(
                 use_azure=True,
@@ -76,7 +76,7 @@ class TestAzureKeylessAuth:
                 return_value=fake_token_provider,
             ),
         ):
-            from lightrag.llm.openai import create_openai_async_client
+            from madrag.llm.openai import create_openai_async_client
 
             create_openai_async_client(
                 use_azure=True,
@@ -100,7 +100,7 @@ class TestAzureKeylessAuth:
             patch("openai.AsyncAzureOpenAI", mock_client_cls),
             patch.dict(sys.modules, {"azure.identity": None}),
         ):
-            from lightrag.llm.openai import create_openai_async_client
+            from madrag.llm.openai import create_openai_async_client
 
             with pytest.raises(ImportError, match="azure-identity"):
                 create_openai_async_client(
@@ -117,7 +117,7 @@ class TestAzureKeylessAuth:
         mock_client_cls = MagicMock()
 
         with patch("openai.AsyncAzureOpenAI", mock_client_cls):
-            from lightrag.llm.openai import create_openai_async_client
+            from madrag.llm.openai import create_openai_async_client
 
             create_openai_async_client(
                 use_azure=True,

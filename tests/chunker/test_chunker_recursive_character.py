@@ -4,8 +4,8 @@ import pytest
 
 pytest.importorskip("langchain_text_splitters")
 
-from lightrag.chunker import chunking_by_recursive_character  # noqa: E402
-from lightrag.utils import Tokenizer, TokenizerInterface  # noqa: E402
+from madrag.chunker import chunking_by_recursive_character  # noqa: E402
+from madrag.utils import Tokenizer, TokenizerInterface  # noqa: E402
 
 
 class _CharTokenizer(TokenizerInterface):

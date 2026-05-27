@@ -8,8 +8,8 @@ import pytest
 
 pytest.importorskip("langchain_experimental")
 
-from lightrag.chunker import chunking_by_semantic_vector  # noqa: E402
-from lightrag.utils import EmbeddingFunc, Tokenizer, TokenizerInterface  # noqa: E402
+from madrag.chunker import chunking_by_semantic_vector  # noqa: E402
+from madrag.utils import EmbeddingFunc, Tokenizer, TokenizerInterface  # noqa: E402
 
 
 class _CharTokenizer(TokenizerInterface):
@@ -93,10 +93,10 @@ def test_v_chunker_falls_back_to_recursive_when_no_embedding():
     is embeddings, so without them R is the closest neighbour."""
     body = "Para A.\n\nPara B for fallback test.\n\nPara C."
 
-    lightrag_logger = logging.getLogger("lightrag")
+    madrag_logger = logging.getLogger("madrag")
     handler = _ListHandler()
     handler.setLevel(logging.WARNING)
-    lightrag_logger.addHandler(handler)
+    madrag_logger.addHandler(handler)
     try:
 
         async def _run():
@@ -109,7 +109,7 @@ def test_v_chunker_falls_back_to_recursive_when_no_embedding():
 
         chunks = asyncio.run(_run())
     finally:
-        lightrag_logger.removeHandler(handler)
+        madrag_logger.removeHandler(handler)
 
     assert len(chunks) >= 1
     assert any(

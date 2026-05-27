@@ -1,8 +1,8 @@
 import pytest
 
-from lightrag.exceptions import ChunkTokenLimitExceededError
-from lightrag.chunker import chunking_by_token_size
-from lightrag.utils import Tokenizer, TokenizerInterface
+from madrag.exceptions import ChunkTokenLimitExceededError
+from madrag.chunker import chunking_by_token_size
+from madrag.utils import Tokenizer, TokenizerInterface
 
 
 class DummyTokenizer(TokenizerInterface):

@@ -24,21 +24,21 @@ from ascii_colors import ASCIIColors
 
 # Add the project root directory to the front of the Python path so this
 # script always exercises the checked-out source tree, not a stale installed
-# lightrag package from the active virtualenv.
+# madrag package from the active virtualenv.
 sys.path.insert(
     0,
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
 )
 
-from lightrag.types import KnowledgeGraph
-from lightrag.kg import (
+from madrag.types import KnowledgeGraph
+from madrag.kg import (
     STORAGE_IMPLEMENTATIONS,
     STORAGE_ENV_REQUIREMENTS,
     STORAGES,
     verify_storage_implementation,
 )
-from lightrag.kg.shared_storage import initialize_share_data
-from lightrag.constants import GRAPH_FIELD_SEP
+from madrag.kg.shared_storage import initialize_share_data
+from madrag.constants import GRAPH_FIELD_SEP
 
 
 # Mock embedding function that returns random vectors
@@ -99,7 +99,7 @@ async def initialize_graph_storage():
         return None
 
     try:
-        module = importlib.import_module(module_path, package="lightrag")
+        module = importlib.import_module(module_path, package="madrag")
         storage_class = getattr(module, graph_storage_type)
     except (ImportError, AttributeError) as e:
         ASCIIColors.red(f"Error: Failed to import {graph_storage_type}: {str(e)}")
@@ -1033,7 +1033,7 @@ async def test_graph_string_escaping_regressions(storage):
     edge retrieval, and delete/remove write paths.
     """
     center_id = 'Danh mục "bài toán lớn"'
-    backslash_id = r"C:\Program Files\LightRAG"
+    backslash_id = r"C:\Program Files\madRAG"
     mixed_id = 'Path "C:\\RAG\\docs"'
     single_quote_id = "Node with 'single quotes'"
 
@@ -1046,7 +1046,7 @@ async def test_graph_string_escaping_regressions(storage):
         },
         backslash_id: {
             "entity_id": backslash_id,
-            "description": r"Windows path C:\Program Files\LightRAG\bin",
+            "description": r"Windows path C:\Program Files\madRAG\bin",
             "keywords": r"paths,C:\temp,backslashes",
             "entity_type": "Regression Node",
         },
@@ -1071,7 +1071,7 @@ async def test_graph_string_escaping_regressions(storage):
         (center_id, backslash_id): {
             "relationship": r'contains "path"\edge',
             "weight": 1.0,
-            "description": r'Links "quoted" title to C:\Program Files\LightRAG',
+            "description": r'Links "quoted" title to C:\Program Files\madRAG',
         },
         (center_id, mixed_id): {
             "relationship": 'references "docs"',

@@ -2,7 +2,7 @@
 set -e
 
 # Configuration
-IMAGE_NAME="ghcr.io/hkuds/lightrag"
+IMAGE_NAME="ghcr.io/hkuds/madrag"
 DOCKERFILE="Dockerfile"
 TAG="latest"
 

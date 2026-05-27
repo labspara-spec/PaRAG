@@ -25,20 +25,20 @@ from typing import Any
 import numpy as np
 import pytest
 
-from lightrag import LightRAG
-from lightrag.constants import FULL_DOCS_FORMAT_LIGHTRAG
-from lightrag.parser.external import (
+from madrag import madRAG
+from madrag.constants import FULL_DOCS_FORMAT_LIGHTRAG
+from madrag.parser.external import (
     Manifest,
     ManifestFile,
     compute_size_and_hash,
     write_manifest,
 )
-from lightrag.parser.external.docling.cache import (
+from madrag.parser.external.docling.cache import (
     compute_options_signature,
     snapshot_tunable_env,
 )
-from lightrag.parser.external.docling.client import FIXED_CONSTANTS
-from lightrag.utils import EmbeddingFunc, Tokenizer
+from madrag.parser.external.docling.client import FIXED_CONSTANTS
+from madrag.utils import EmbeddingFunc, Tokenizer
 
 
 class _SimpleTokenizerImpl:
@@ -57,8 +57,8 @@ async def _mock_llm(prompt: Any, **kwargs: Any) -> str:
     return '{"name":"x","summary":"s","detail_description":"d"}'
 
 
-def _new_rag(tmp_path: Path) -> LightRAG:
-    return LightRAG(
+def _new_rag(tmp_path: Path) -> madRAG:
+    return madRAG(
         working_dir=str(tmp_path),
         workspace=f"test-docling-sidecar-{tmp_path.name}",
         llm_model_func=_mock_llm,
@@ -176,7 +176,7 @@ _FAKE_DOCLING_JSON = {
 def _install_fake_download(monkeypatch: pytest.MonkeyPatch) -> dict[str, int]:
     """Replace ``DoclingRawClient.download_into`` with a recorder that
     writes a synthetic raw bundle and a valid manifest."""
-    import lightrag.parser.external.docling.client as client_mod
+    import madrag.parser.external.docling.client as client_mod
 
     counters = {"calls": 0}
 
@@ -226,14 +226,14 @@ def _install_fake_download(monkeypatch: pytest.MonkeyPatch) -> dict[str, int]:
     return counters
 
 
-def _stub_pipeline(monkeypatch: pytest.MonkeyPatch, rag: LightRAG, src: Path) -> None:
+def _stub_pipeline(monkeypatch: pytest.MonkeyPatch, rag: madRAG, src: Path) -> None:
     """Common pipeline-level stubs: avoid moving the source file and pin
     the file resolver to the synthetic path."""
 
     async def _noop_archive(_p: str) -> None:
         return None
 
-    import lightrag.pipeline as pipeline_module
+    import madrag.pipeline as pipeline_module
 
     monkeypatch.setattr(
         pipeline_module,
@@ -243,7 +243,7 @@ def _stub_pipeline(monkeypatch: pytest.MonkeyPatch, rag: LightRAG, src: Path) ->
     monkeypatch.setattr(rag, "_resolve_source_file_for_parser", lambda _p: str(src))
 
 
-def _seed_doc_status(rag: LightRAG, doc_id: str) -> Any:
+def _seed_doc_status(rag: madRAG, doc_id: str) -> Any:
     return rag.doc_status.upsert(
         {
             doc_id: {
@@ -543,7 +543,7 @@ def test_parse_docling_zero_blocks_raises(
 
         # Install a fake download that writes a valid bundle whose body has
         # no children — the adapter then produces zero IR blocks.
-        import lightrag.parser.external.docling.client as client_mod
+        import madrag.parser.external.docling.client as client_mod
 
         empty_json: dict[str, Any] = {
             "schema_name": "DoclingDocument",

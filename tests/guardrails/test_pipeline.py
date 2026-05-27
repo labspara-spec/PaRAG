@@ -1,7 +1,7 @@
 """Tests for GuardrailPipeline end-to-end."""
 
 import pytest
-from lightrag.guardrails import (
+from madrag.guardrails import (
     GuardrailConfig,
     GuardrailPipeline,
     GuardrailViolationError,

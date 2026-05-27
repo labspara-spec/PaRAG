@@ -215,7 +215,7 @@ validate_required_variables() {
   if ((${#unknown[@]} > 0)); then
     format_error \
       "Unsupported storage selections: ${unknown[*]}" \
-      "Use a supported LightRAG storage class name or rerun setup to pick a valid backend."
+      "Use a supported madRAG storage class name or rerun setup to pick a valid backend."
     return 1
   fi
 
@@ -485,7 +485,7 @@ validate_security_config() {
   if ! validate_auth_accounts_password_safety "$auth_accounts"; then
     format_error \
       "AUTH_ACCOUNTS passwords must not start with 'admin' or 'pass'." \
-      "Choose a less predictable password or use lightrag-hash-password to generate a {bcrypt} value."
+      "Choose a less predictable password or use madrag-hash-password to generate a {bcrypt} value."
     return 1
   fi
 
@@ -496,7 +496,7 @@ validate_security_config() {
     return 1
   fi
 
-  if [[ "$token_secret" == "lightrag-jwt-default-secret-key!" ]]; then
+  if [[ "$token_secret" == "madrag-jwt-default-secret-key!" ]]; then
     format_error \
       "TOKEN_SECRET must not use the built-in default value when AUTH_ACCOUNTS is enabled." \
       "Generate a unique JWT signing secret and update TOKEN_SECRET."

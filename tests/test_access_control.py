@@ -3,11 +3,11 @@
 import os
 import pytest
 
-from lightrag.access_control import (
+from madrag.access_control import (
     build_permission_filter,
     apply_permission_filter,
 )
-from lightrag.base import PermissionFilter
+from madrag.base import PermissionFilter
 
 
 # ---------------------------------------------------------------------------

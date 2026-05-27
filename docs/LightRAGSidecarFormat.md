@@ -1,6 +1,6 @@
-# LightRAG Sidecar File Format Specification
+# madRAG Sidecar File Format Specification
 
-This document describes the **LightRAG Sidecar** file format that content parsing engines output. When LightRAG uses multimodal-capable content parsing engines such as native/mineru/docling to extract file content, it splits "body text + multimodal objects + parsing metadata" into a `*.parsed/` directory. Each JSON / JSONL file in that directory is collectively called a **sidecar** file. Sidecars are the only reliable source of truth for the subsequent pipeline (multimodal analysis → multimodal chunk construction → entity extraction → cache cleanup on document deletion). The sidecar format is LightRAG's built-in universal file interchange format; new multimodal content extraction engines must follow this format. The purpose of publicly documenting the **LightRAG Sidecar** format is to make it convenient for community developers to write their own content parsing engines.
+This document describes the **madRAG Sidecar** file format that content parsing engines output. When madRAG uses multimodal-capable content parsing engines such as native/mineru/docling to extract file content, it splits "body text + multimodal objects + parsing metadata" into a `*.parsed/` directory. Each JSON / JSONL file in that directory is collectively called a **sidecar** file. Sidecars are the only reliable source of truth for the subsequent pipeline (multimodal analysis → multimodal chunk construction → entity extraction → cache cleanup on document deletion). The sidecar format is madRAG's built-in universal file interchange format; new multimodal content extraction engines must follow this format. The purpose of publicly documenting the **madRAG Sidecar** format is to make it convenient for community developers to write their own content parsing engines.
 
 ## 1. Overview
 
@@ -15,7 +15,7 @@ This document describes the **LightRAG Sidecar** file format that content parsin
 Design intent of sidecars:
 
 - During the parsing stage, the content extraction engine (native/mineru/docling) is **only** responsible for generating "objective" fields such as `blockid / heading / content / surrounding`;
-- During the multimodal analysis stage (`analyze_multimodal`), the analysis result dict `llm_analyze_result` is written by LightRAG and may be appended or overwritten; parsers should not pre-populate it.
+- During the multimodal analysis stage (`analyze_multimodal`), the analysis result dict `llm_analyze_result` is written by madRAG and may be appended or overwritten; parsers should not pre-populate it.
 
 ## 2. Directory Layout
 
@@ -44,7 +44,7 @@ inputs/space1/__parsed__/<canonical filename>.parsed/
 ```json
 {
   "type": "meta",
-  "format": "lightrag",
+  "format": "madrag",
   "version": "1.0",
   "document_name": "m012-manual.docx",
   "document_format": "docx",
@@ -65,11 +65,11 @@ inputs/space1/__parsed__/<canonical filename>.parsed/
 | Field | Type | Description |
 |---|---|---|
 | `type` | `"meta"` | Line type, fixed value, sanity check |
-| `format` | `"lightrag"` | Sidecar major version family identifier |
+| `format` | `"madrag"` | Sidecar major version family identifier |
 | `version` | `str` | Sidecar schema version |
 | `document_name` | `str` | Canonical filename (with extension, without processing hints) |
 | `document_format` | `str` | File format (currently expressed as the file extension) |
-| `document_hash` | `"sha256:<hex>"` | Sidecar body fingerprint, defined as `SHA-256(merged_text)`, where `merged_text` is the concatenation of all non-empty content lines' `content` fields joined by `"\n\n"`. Used by external consumers to quickly determine whether two `.parsed/` directories share the same source (without line-by-line body comparison), and serves as a self-describing content checksum for the sidecar file. Note: the LightRAG ingestion pipeline itself does not read this field; cross-document deduplication is handled separately by `doc_status.content_hash`. |
+| `document_hash` | `"sha256:<hex>"` | Sidecar body fingerprint, defined as `SHA-256(merged_text)`, where `merged_text` is the concatenation of all non-empty content lines' `content` fields joined by `"\n\n"`. Used by external consumers to quickly determine whether two `.parsed/` directories share the same source (without line-by-line body comparison), and serves as a self-describing content checksum for the sidecar file. Note: the madRAG ingestion pipeline itself does not read this field; cross-document deduplication is handled separately by `doc_status.content_hash`. |
 | `table_file` / `equation_file` / `drawing_file` | `bool` | Whether the corresponding sidecar files exist (when true, the corresponding file must exist) |
 | `asset_dir` | `bool` | Whether the `blocks.assets` asset directory exists |
 | `split_option` | `object` | Chunking parameters used during file extraction. This field is reserved for the extraction engine itself to record and use |
@@ -82,7 +82,7 @@ inputs/space1/__parsed__/<canonical filename>.parsed/
 | `doc_attributes` | `object` | Document extended attributes object; optional |
 | `bbox_attributes` | `object` | Global bbox position attributes; see [§8](#8-positions) |
 
-> LightRAG requires that filenames (`document_name`) be unique within the same workspace (knowledge base).
+> madRAG requires that filenames (`document_name`) be unique within the same workspace (knowledge base).
 
 ### 3.2 content line
 
@@ -300,7 +300,7 @@ During the modal analysis stage, when the length of the `content` field exceeds 
 
 ## 7. surrounding
 
-`surrounding.leading` and `surrounding.trailing` are the analyzable context windows of a sidecar item; their purpose is to provide contextual information about the paragraph containing the image, table, or equation, improving the quality of multimodal analysis. **The surrounding content is automatically injected by LightRAG during the analysis stage; it does not need to be actively written into the sidecar by the document parsing engine.** The generation logic of the surrounding content is as follows:
+`surrounding.leading` and `surrounding.trailing` are the analyzable context windows of a sidecar item; their purpose is to provide contextual information about the paragraph containing the image, table, or equation, improving the quality of multimodal analysis. **The surrounding content is automatically injected by madRAG during the analysis stage; it does not need to be actively written into the sidecar by the document parsing engine.** The generation logic of the surrounding content is as follows:
 
 - Taken from the text of the content line with the same `blockid`, split at the position of the multimodal placeholder tag;
 - The token limit on each side is controlled by the environment variables `SURROUNDING_LEADING_MAX_TOKENS` / `SURROUNDING_TRAILING_MAX_TOKENS` (default `2000`, can be tuned independently); truncated by tokenizer, preferring to retain sentences close to the target;
@@ -396,4 +396,4 @@ Additional notes:
 - `message` is **always an empty string** when `status="success"`, making filtering convenient;
 - Items for enabled modalities are recomputed on each `analyze_multimodal` run, and the current run overwrites any prior `llm_analyze_result` (`success`, `skipped`, or `failure`). This allows operators to fix VLM/EXTRACT configuration and retry without manually clearing stale sidecar results. LLM calls still use the analysis cache: if the cache key matches, the provider is not called and semantic fields usually remain the same, though runtime fields such as `analyze_time` are rewritten. A cache miss, for example after changing the effective role model/binding/host, prompt inputs, or image metadata, can produce different saved content.
 
-Drawing `type` is constrained to a 12-value enum (see [`IMAGE_TYPE_ENUM`](../lightrag/prompt_multimodal.py): `Photo / Illustration / Screenshot / Icon / Chart / Table / Infographic / Flowchart / Chat Log / Wireframe / Texture / Other`); values returned by the model outside the enum are normalized to `Other` rather than failing.
+Drawing `type` is constrained to a 12-value enum (see [`IMAGE_TYPE_ENUM`](../madrag/prompt_multimodal.py): `Photo / Illustration / Screenshot / Icon / Chart / Table / Infographic / Flowchart / Chat Log / Wireframe / Texture / Other`); values returned by the model outside the enum are normalized to `Other` rather than failing.

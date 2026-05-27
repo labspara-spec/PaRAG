@@ -1,11 +1,11 @@
 services:
-  lightrag:
-    image: ghcr.io/hkuds/lightrag:latest
+  madrag:
+    image: ghcr.io/hkuds/madrag:latest
     build:
       context: .
       dockerfile: Dockerfile
       tags:
-        - ghcr.io/hkuds/lightrag:latest
+        - ghcr.io/hkuds/madrag:latest
     ports:
       - "${HOST:-0.0.0.0}:${PORT:-9621}:9621"
     volumes:

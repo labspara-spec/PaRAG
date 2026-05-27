@@ -31,8 +31,8 @@ confirm_default_yes() {{ return 0; }}
 prompt_with_default() {{
   case "$1" in
     "PostgreSQL host") printf 'localhost' ;;
-    "PostgreSQL user") printf 'lightrag' ;;
-    "PostgreSQL database") printf 'lightrag' ;;
+    "PostgreSQL user") printf 'madrag' ;;
+    "PostgreSQL database") printf 'madrag' ;;
     *) printf '%s' "$2" ;;
   esac
 }}
@@ -92,10 +92,10 @@ printf 'PROMPT_LOG=%s\\n' "$(paste -sd '|' "$PROMPT_LOG_FILE")\"
 """)
     assert values["POSTGRES_USER"] == "rag"
     assert values["POSTGRES_PASSWORD"] == "rag"
-    assert values["POSTGRES_DATABASE"] == "lightrag"
+    assert values["POSTGRES_DATABASE"] == "madrag"
     assert (
         values["PROMPT_LOG"]
-        == "PostgreSQL host[localhost]|PostgreSQL user[rag]|secret:PostgreSQL password: [rag]|PostgreSQL database[lightrag]"
+        == "PostgreSQL host[localhost]|PostgreSQL user[rag]|secret:PostgreSQL password: [rag]|PostgreSQL database[madrag]"
     )
 
 
@@ -194,7 +194,7 @@ printf 'PROMPT_LOG=%s\\n' "$(paste -sd '|' "$PROMPT_LOG_FILE")\"
     assert values["POSTGRES_PASSWORD"] == "host-password"
     assert (
         values["PROMPT_LOG"]
-        == "PostgreSQL host[localhost]|PostgreSQL port[5432]|PostgreSQL user[rag]|PostgreSQL password: [rag]|PostgreSQL database[lightrag]"
+        == "PostgreSQL host[localhost]|PostgreSQL port[5432]|PostgreSQL user[rag]|PostgreSQL password: [rag]|PostgreSQL database[madrag]"
     )
 
 
@@ -360,11 +360,11 @@ confirm_default_yes() {{ return 0; }}
 prompt_choice() {{ printf '%s' "$2"; }}
 prompt_with_default() {{
   case "$1" in
-    "PostgreSQL user") printf 'lightrag' ;;
-    "PostgreSQL database") printf 'lightrag' ;;
+    "PostgreSQL user") printf 'madrag' ;;
+    "PostgreSQL database") printf 'madrag' ;;
     "Neo4j database") printf 'neo4j' ;;
-    "MongoDB database") printf 'LightRAG' ;;
-    "Milvus database name") printf 'lightrag' ;;
+    "MongoDB database") printf 'madRAG' ;;
+    "Milvus database name") printf 'madrag' ;;
     *) printf '%s' "$2" ;;
   esac
 }}
@@ -1000,7 +1000,7 @@ collect_milvus_config no
 
 printf 'MILVUS_DB_NAME=%s\\n' "${{ENV_VALUES[MILVUS_DB_NAME]}}\"
 """)
-    assert values["MILVUS_DB_NAME"] == "lightrag"
+    assert values["MILVUS_DB_NAME"] == "madrag"
 
 
 def test_collect_milvus_config_initializes_minio_credentials_for_local_docker(
@@ -1125,7 +1125,7 @@ confirm_default_yes() {{ return 0; }}
 prompt_until_valid() {{ printf '%s' "$2"; }}
 prompt_with_default() {{
   if [[ "$1" == "MongoDB database" ]]; then
-    printf 'LightRAG'
+    printf 'madRAG'
   else
     printf '%s' "$2"
   fi
@@ -1179,7 +1179,7 @@ source "{REPO_ROOT}/scripts/setup/setup.sh"
 reset_state
 
 ENV_VALUES[LIGHTRAG_VECTOR_STORAGE]="MongoVectorDBStorage"
-ENV_VALUES[MONGO_URI]="mongodb://atlas-local.example.com:27017/LightRAG?replicaSet=rs0&directConnection=true"
+ENV_VALUES[MONGO_URI]="mongodb://atlas-local.example.com:27017/madRAG?replicaSet=rs0&directConnection=true"
 
 confirm_default_yes() {{ return 1; }}
 prompt_until_valid() {{ printf '%s' "$2"; }}
@@ -1192,7 +1192,7 @@ printf 'COMPOSE_MONGO_URI=%s\\n' "${{COMPOSE_ENV_OVERRIDES[MONGO_URI]-}}\"
 """)
     assert (
         values["MONGO_URI"]
-        == "mongodb://atlas-local.example.com:27017/LightRAG?replicaSet=rs0&directConnection=true"
+        == "mongodb://atlas-local.example.com:27017/madRAG?replicaSet=rs0&directConnection=true"
     )
     assert values["COMPOSE_MONGO_URI"] == ""
 
@@ -1358,8 +1358,8 @@ def test_collect_neo4j_config_bundled_service_keeps_username_editable(
         "\n".join(
             [
                 "services:",
-                "  lightrag:",
-                "    image: example/lightrag:test",
+                "  madrag:",
+                "    image: example/madrag:test",
                 "    env_file:",
                 "      - .env",
             ]

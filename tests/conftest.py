@@ -1,5 +1,5 @@
 """
-Pytest configuration for LightRAG tests.
+Pytest configuration for madRAG tests.
 
 This file provides command-line options and fixtures for test configuration.
 """
@@ -11,7 +11,7 @@ import pytest
 def _hermetic_mineru_env(monkeypatch):
     """Make every test start with parser-routing env vars in their unset state.
 
-    ``lightrag/api/{auth,config}.py`` call ``load_dotenv(override=False)``
+    ``madrag/api/{auth,config}.py`` call ``load_dotenv(override=False)``
     at import time, leaking the developer's local ``.env`` into the test
     process. The MinerU test fixtures assume ``MINERU_API_MODE`` is unset
     (so it defaults to ``"local"`` per ``MinerURawClient.__init__`` /
@@ -45,7 +45,7 @@ def _hermetic_mineru_env(monkeypatch):
 
 
 def pytest_configure(config):
-    """Register custom markers for LightRAG tests."""
+    """Register custom markers for madRAG tests."""
     config.addinivalue_line(
         "markers", "offline: marks tests as offline (no external dependencies)"
     )
@@ -55,12 +55,12 @@ def pytest_configure(config):
     )
     config.addinivalue_line("markers", "requires_db: marks tests requiring database")
     config.addinivalue_line(
-        "markers", "requires_api: marks tests requiring LightRAG API server"
+        "markers", "requires_api: marks tests requiring madRAG API server"
     )
 
 
 def pytest_addoption(parser):
-    """Add custom command-line options for LightRAG tests."""
+    """Add custom command-line options for madRAG tests."""
 
     parser.addoption(
         "--keep-artifacts",

@@ -1,4 +1,4 @@
-"""Tests for the unified parser debug CLI (``lightrag/parser/cli.py``).
+"""Tests for the unified parser debug CLI (``madrag/parser/cli.py``).
 
 The CLI behaviour under test is engine-agnostic: argument parsing, the
 flat sidecar layout (no ``__parsed__/`` middle layer), the lenient raw
@@ -28,7 +28,7 @@ from typing import Any
 
 import pytest
 
-from lightrag.parser.cli import main
+from madrag.parser.cli import main
 
 
 def _make_main_json(

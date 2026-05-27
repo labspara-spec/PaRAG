@@ -16,7 +16,7 @@ import os
 import time
 from dotenv import load_dotenv
 from unittest.mock import patch
-from lightrag.kg.postgres_impl import PostgreSQLDB
+from madrag.kg.postgres_impl import PostgreSQLDB
 
 asyncpg = pytest.importorskip("asyncpg")
 

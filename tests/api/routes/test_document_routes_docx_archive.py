@@ -9,13 +9,13 @@ import pytest
 
 _original_argv = sys.argv[:]
 sys.argv = [sys.argv[0]]
-_document_routes = importlib.import_module("lightrag.api.routers.document_routes")
-_lightrag = importlib.import_module("lightrag.lightrag")
-_pipeline = importlib.import_module("lightrag.pipeline")
-_base = importlib.import_module("lightrag.base")
-_constants = importlib.import_module("lightrag.constants")
-_utils = importlib.import_module("lightrag.utils")
-_parser_routing = importlib.import_module("lightrag.parser.routing")
+_document_routes = importlib.import_module("madrag.api.routers.document_routes")
+_madrag = importlib.import_module("madrag.madrag")
+_pipeline = importlib.import_module("madrag.pipeline")
+_base = importlib.import_module("madrag.base")
+_constants = importlib.import_module("madrag.constants")
+_utils = importlib.import_module("madrag.utils")
+_parser_routing = importlib.import_module("madrag.parser.routing")
 sys.argv = _original_argv
 
 DocStatus = _base.DocStatus
@@ -25,7 +25,7 @@ FULL_DOCS_FORMAT_PENDING_PARSE = _constants.FULL_DOCS_FORMAT_PENDING_PARSE
 PARSED_DIR_NAME = _constants.PARSED_DIR_NAME
 PROCESS_OPTION_CHUNK_FIXED = _constants.PROCESS_OPTION_CHUNK_FIXED
 compute_mdhash_id = _utils.compute_mdhash_id
-LightRAG = _lightrag.LightRAG
+madRAG = _madrag.madRAG
 resolve_stored_document_parser_engine = (
     _parser_routing.resolve_stored_document_parser_engine
 )
@@ -47,13 +47,13 @@ def _ensure_shared_storage_initialized():
     The scan endpoint and the enqueue/scanning guards read
     ``pipeline_status`` via ``get_namespace_data``, which raises if
     shared dicts have never been initialized.  Tests using mocked
-    ``LightRAG`` instances don't run ``initialize_storages``, so we set
+    ``madRAG`` instances don't run ``initialize_storages``, so we set
     up the shared store here and reset pipeline_status state per-test
     to avoid leakage.
     """
     import importlib
 
-    shared_storage = importlib.import_module("lightrag.kg.shared_storage")
+    shared_storage = importlib.import_module("madrag.kg.shared_storage")
     shared_storage.initialize_share_data()
     yield
     # Reset pipeline_status to a clean state so subsequent tests don't
@@ -276,11 +276,11 @@ class _ParseTokenizer(_utils.TokenizerInterface):
 
 
 class _ParseRag:
-    _persist_parsed_full_docs = LightRAG._persist_parsed_full_docs
-    # parse_native now delegates to the LightRAG Document writer, which the
+    _persist_parsed_full_docs = madRAG._persist_parsed_full_docs
+    # parse_native now delegates to the madRAG Document writer, which the
     # tests need to exercise to validate archive + full_docs side effects.
-    _write_lightrag_document_from_content_list = (
-        LightRAG._write_lightrag_document_from_content_list
+    _write_madrag_document_from_content_list = (
+        madRAG._write_madrag_document_from_content_list
     )
 
     def __init__(self, working_dir, source_path):
@@ -295,7 +295,7 @@ class _ParseRag:
         return file_path
 
 
-async def test_pipeline_index_file_leaves_lightrag_document_docx_for_parser_archive(
+async def test_pipeline_index_file_leaves_madrag_document_docx_for_parser_archive(
     tmp_path, monkeypatch
 ):
     monkeypatch.setenv("LIGHTRAG_PARSER", "docx:native")
@@ -312,7 +312,7 @@ async def test_pipeline_index_file_leaves_lightrag_document_docx_for_parser_arch
     assert rag.enqueued[0]["parse_engine"] == "native"
 
 
-async def test_pipeline_enqueue_lightrag_document_docx_does_not_move_source(
+async def test_pipeline_enqueue_madrag_document_docx_does_not_move_source(
     tmp_path, monkeypatch
 ):
     monkeypatch.setenv("LIGHTRAG_PARSER", "docx:native")
@@ -504,7 +504,7 @@ async def test_pipeline_enqueue_rejects_invalid_filename_hint(tmp_path, monkeypa
     assert file_path.exists()
 
 
-async def test_pipeline_enqueue_lightrag_parser_rule_provides_default_options(
+async def test_pipeline_enqueue_madrag_parser_rule_provides_default_options(
     tmp_path, monkeypatch
 ):
     """LIGHTRAG_PARSER ``docx:native-iet`` becomes the default ``process_options``."""
@@ -522,7 +522,7 @@ async def test_pipeline_enqueue_lightrag_parser_rule_provides_default_options(
     assert enqueued["process_options"] == "iet"
 
 
-async def test_pipeline_index_files_leaves_lightrag_document_docx_batch(
+async def test_pipeline_index_files_leaves_madrag_document_docx_batch(
     tmp_path, monkeypatch
 ):
     monkeypatch.setenv("LIGHTRAG_PARSER", "docx:native")
@@ -1002,7 +1002,7 @@ async def test_upload_succeeds_concurrent_with_pipeline_busy(tmp_path, monkeypat
     doc_manager = DocumentManager(str(tmp_path))
     rag = _DuplicateUploadRag({})
 
-    shared_storage = importlib.import_module("lightrag.kg.shared_storage")
+    shared_storage = importlib.import_module("madrag.kg.shared_storage")
     await shared_storage.initialize_pipeline_status(workspace=rag.workspace)
     pipeline_status = await shared_storage.get_namespace_data(
         "pipeline_status", workspace=rag.workspace
@@ -1049,7 +1049,7 @@ async def test_upload_returns_409_when_scanning_classification(tmp_path, monkeyp
     doc_manager = DocumentManager(str(tmp_path))
     rag = _DuplicateUploadRag({})
 
-    shared_storage = importlib.import_module("lightrag.kg.shared_storage")
+    shared_storage = importlib.import_module("madrag.kg.shared_storage")
     await shared_storage.initialize_pipeline_status(workspace=rag.workspace)
     pipeline_status = await shared_storage.get_namespace_data(
         "pipeline_status", workspace=rag.workspace
@@ -1090,7 +1090,7 @@ async def test_upload_succeeds_during_scan_processing_phase(tmp_path, monkeypatc
     doc_manager = DocumentManager(str(tmp_path))
     rag = _DuplicateUploadRag({})
 
-    shared_storage = importlib.import_module("lightrag.kg.shared_storage")
+    shared_storage = importlib.import_module("madrag.kg.shared_storage")
     await shared_storage.initialize_pipeline_status(workspace=rag.workspace)
     pipeline_status = await shared_storage.get_namespace_data(
         "pipeline_status", workspace=rag.workspace
@@ -1130,7 +1130,7 @@ async def test_scan_endpoint_returns_skipped_when_pipeline_busy(tmp_path):
     doc_manager = DocumentManager(str(tmp_path))
     rag = _ScanRag({})
 
-    shared_storage = importlib.import_module("lightrag.kg.shared_storage")
+    shared_storage = importlib.import_module("madrag.kg.shared_storage")
     await shared_storage.initialize_pipeline_status(workspace=rag.workspace)
     pipeline_status = await shared_storage.get_namespace_data(
         "pipeline_status", workspace=rag.workspace
@@ -1162,7 +1162,7 @@ async def test_scan_endpoint_returns_skipped_when_already_scanning(tmp_path):
     doc_manager = DocumentManager(str(tmp_path))
     rag = _ScanRag({})
 
-    shared_storage = importlib.import_module("lightrag.kg.shared_storage")
+    shared_storage = importlib.import_module("madrag.kg.shared_storage")
     await shared_storage.initialize_pipeline_status(workspace=rag.workspace)
     pipeline_status = await shared_storage.get_namespace_data(
         "pipeline_status", workspace=rag.workspace
@@ -1193,7 +1193,7 @@ async def test_scan_endpoint_acquires_and_releases_scanning_flag(tmp_path, monke
     doc_manager = DocumentManager(str(tmp_path))
     rag = _ScanRag({})
 
-    shared_storage = importlib.import_module("lightrag.kg.shared_storage")
+    shared_storage = importlib.import_module("madrag.kg.shared_storage")
     await shared_storage.initialize_pipeline_status(workspace=rag.workspace)
     pipeline_status = await shared_storage.get_namespace_data(
         "pipeline_status", workspace=rag.workspace
@@ -1235,7 +1235,7 @@ async def test_scan_endpoint_returns_skipped_when_enqueue_pending(tmp_path):
     doc_manager = DocumentManager(str(tmp_path))
     rag = _ScanRag({})
 
-    shared_storage = importlib.import_module("lightrag.kg.shared_storage")
+    shared_storage = importlib.import_module("madrag.kg.shared_storage")
     await shared_storage.initialize_pipeline_status(workspace=rag.workspace)
     pipeline_status = await shared_storage.get_namespace_data(
         "pipeline_status", workspace=rag.workspace
@@ -1277,7 +1277,7 @@ async def test_reserve_enqueue_slot_blocks_concurrent_scan_until_release(tmp_pat
     doc_manager = DocumentManager(str(tmp_path))
     rag = _ScanRag({})
 
-    shared_storage = importlib.import_module("lightrag.kg.shared_storage")
+    shared_storage = importlib.import_module("madrag.kg.shared_storage")
     await shared_storage.initialize_pipeline_status(workspace=rag.workspace)
     pipeline_status = await shared_storage.get_namespace_data(
         "pipeline_status", workspace=rag.workspace
@@ -1323,7 +1323,7 @@ async def test_release_enqueue_slot_decrements_per_call(tmp_path):
     import importlib
 
     rag = _ScanRag({})
-    shared_storage = importlib.import_module("lightrag.kg.shared_storage")
+    shared_storage = importlib.import_module("madrag.kg.shared_storage")
     await shared_storage.initialize_pipeline_status(workspace=rag.workspace)
     pipeline_status = await shared_storage.get_namespace_data(
         "pipeline_status", workspace=rag.workspace
@@ -1371,7 +1371,7 @@ async def test_two_concurrent_uploads_both_succeed_when_pipeline_busy(
     doc_manager = DocumentManager(str(tmp_path))
     rag = _DuplicateUploadRag({})
 
-    shared_storage = importlib.import_module("lightrag.kg.shared_storage")
+    shared_storage = importlib.import_module("madrag.kg.shared_storage")
     await shared_storage.initialize_pipeline_status(workspace=rag.workspace)
     pipeline_status = await shared_storage.get_namespace_data(
         "pipeline_status", workspace=rag.workspace
@@ -1417,7 +1417,7 @@ async def test_reserve_enqueue_slot_allows_busy_and_scan_processing_phase(tmp_pa
     import importlib
 
     rag = _ScanRag({})
-    shared_storage = importlib.import_module("lightrag.kg.shared_storage")
+    shared_storage = importlib.import_module("madrag.kg.shared_storage")
     await shared_storage.initialize_pipeline_status(workspace=rag.workspace)
     pipeline_status = await shared_storage.get_namespace_data(
         "pipeline_status", workspace=rag.workspace
@@ -1460,7 +1460,7 @@ async def test_reserve_enqueue_slot_rejects_destructive_busy(tmp_path):
     import importlib
 
     rag = _ScanRag({})
-    shared_storage = importlib.import_module("lightrag.kg.shared_storage")
+    shared_storage = importlib.import_module("madrag.kg.shared_storage")
     await shared_storage.initialize_pipeline_status(workspace=rag.workspace)
     pipeline_status = await shared_storage.get_namespace_data(
         "pipeline_status", workspace=rag.workspace
@@ -1507,7 +1507,7 @@ async def test_clear_documents_sets_and_clears_destructive_busy(tmp_path):
             self.workspace = ws
 
         async def drop(self):
-            shared_storage_inner = importlib.import_module("lightrag.kg.shared_storage")
+            shared_storage_inner = importlib.import_module("madrag.kg.shared_storage")
             ns = await shared_storage_inner.get_namespace_data(
                 "pipeline_status", workspace=self.workspace
             )
@@ -1540,7 +1540,7 @@ async def test_clear_documents_sets_and_clears_destructive_busy(tmp_path):
     doc_manager = DocumentManager(str(tmp_path))
     rag = _ClearRag()
 
-    shared_storage = importlib.import_module("lightrag.kg.shared_storage")
+    shared_storage = importlib.import_module("madrag.kg.shared_storage")
     await shared_storage.initialize_pipeline_status(workspace=rag.workspace)
     pipeline_status = await shared_storage.get_namespace_data(
         "pipeline_status", workspace=rag.workspace
@@ -1580,7 +1580,7 @@ async def test_clear_documents_refuses_when_scanning_or_pending_enqueues(tmp_pat
     rag = _StubRag()
     doc_manager = DocumentManager(str(tmp_path))
 
-    shared_storage = importlib.import_module("lightrag.kg.shared_storage")
+    shared_storage = importlib.import_module("madrag.kg.shared_storage")
     await shared_storage.initialize_pipeline_status(workspace=rag.workspace)
     pipeline_status = await shared_storage.get_namespace_data(
         "pipeline_status", workspace=rag.workspace
@@ -1637,7 +1637,7 @@ async def test_delete_document_reserves_destructive_busy_synchronously(tmp_path)
     rag = _DeleteRag(DeletionResult(status="success", message="ok", doc_id="doc-1"))
     doc_manager = DocumentManager(str(tmp_path))
 
-    shared_storage = importlib.import_module("lightrag.kg.shared_storage")
+    shared_storage = importlib.import_module("madrag.kg.shared_storage")
     await shared_storage.initialize_pipeline_status(workspace=rag.workspace)
     pipeline_status = await shared_storage.get_namespace_data(
         "pipeline_status", workspace=rag.workspace
@@ -1749,7 +1749,7 @@ def test_delete_file_variants_removes_canonical_hint_variants(tmp_path):
 
 
 async def test_background_delete_removes_parser_hint_file_variants(tmp_path):
-    shared_storage = importlib.import_module("lightrag.kg.shared_storage")
+    shared_storage = importlib.import_module("madrag.kg.shared_storage")
     parsed_dir = tmp_path / PARSED_DIR_NAME
     parsed_dir.mkdir()
     source_file = tmp_path / "paper.[native].docx"
@@ -1791,10 +1791,10 @@ async def test_docx_archive_failure_is_best_effort(tmp_path, monkeypatch):
     async def _raise_archive_failure(*args, **kwargs):
         raise OSError("simulated archive failure")
 
-    from lightrag.utils_pipeline import (
+    from madrag.utils_pipeline import (
         archive_docx_source_after_full_docs_sync,
     )
-    import lightrag.utils_pipeline as _utils_pipeline
+    import madrag.utils_pipeline as _utils_pipeline
 
     monkeypatch.setattr(
         _utils_pipeline, "move_file_to_parsed_dir", _raise_archive_failure
@@ -1831,11 +1831,11 @@ async def test_parse_native_archives_docx_after_full_docs_sync(tmp_path, monkeyp
         ]
 
     monkeypatch.setattr(
-        "lightrag.parser.docx.parse_document.extract_docx_blocks",
+        "madrag.parser.docx.parse_document.extract_docx_blocks",
         _fake_extract,
     )
 
-    result = await LightRAG.parse_native(
+    result = await madRAG.parse_native(
         rag,
         "doc-test",
         str(source_path),
@@ -1845,7 +1845,7 @@ async def test_parse_native_archives_docx_after_full_docs_sync(tmp_path, monkeyp
     # parse_native now returns LIGHTRAG-format parsed_data with merged_text
     # (not the {{LRdoc}} marker — that's only in the persisted full_docs row).
     assert result["content"]
-    assert result["parse_format"] == "lightrag"
+    assert result["parse_format"] == "madrag"
     assert result["blocks_path"]
     assert rag.full_docs.events == ["upsert", "index_done"]
     assert not source_path.exists()
@@ -1854,7 +1854,7 @@ async def test_parse_native_archives_docx_after_full_docs_sync(tmp_path, monkeyp
     assert parsed_artifact_dir.is_dir()
     assert (parsed_artifact_dir / "parsed-after-sync.blocks.jsonl").is_file()
     assert rag.full_docs.data["doc-test"]["parse_engine"] == "native"
-    assert rag.full_docs.data["doc-test"]["parse_format"] == "lightrag"
+    assert rag.full_docs.data["doc-test"]["parse_format"] == "madrag"
     # Per docs/FileProcessingConfiguration-zh.md, content uses the {{LRdoc}}
     # marker plus a leading-text summary derived from merged blocks.
     assert rag.full_docs.data["doc-test"]["content"].startswith("{{LRdoc}}")
@@ -1863,7 +1863,7 @@ async def test_parse_native_archives_docx_after_full_docs_sync(tmp_path, monkeyp
 def test_parsed_artifact_dir_uses_unique_suffix_when_path_is_file(
     tmp_path, monkeypatch
 ):
-    from lightrag.utils_pipeline import parsed_artifact_dir_for
+    from madrag.utils_pipeline import parsed_artifact_dir_for
 
     monkeypatch.setenv("INPUT_DIR", str(tmp_path))
     parsed_dir = tmp_path / PARSED_DIR_NAME
@@ -1876,7 +1876,7 @@ def test_parsed_artifact_dir_uses_unique_suffix_when_path_is_file(
 
 
 def test_parsed_artifact_dir_reuses_existing_parsed_parent(tmp_path, monkeypatch):
-    from lightrag.utils_pipeline import parsed_artifact_dir_for
+    from madrag.utils_pipeline import parsed_artifact_dir_for
 
     monkeypatch.setenv("INPUT_DIR", str(tmp_path))
     parsed_dir = tmp_path / PARSED_DIR_NAME
@@ -1901,13 +1901,13 @@ async def test_parse_native_docx_content_list_failure_raises_without_fallback(
         raise AssertionError("plain text fallback should not run")
 
     monkeypatch.setattr(
-        "lightrag.parser.docx.parse_document.extract_docx_blocks",
+        "madrag.parser.docx.parse_document.extract_docx_blocks",
         _raise_parser,
     )
     monkeypatch.setattr(_document_routes, "_extract_docx", _fail_fallback)
 
     with pytest.raises(RuntimeError, match="content list boom"):
-        await LightRAG.parse_native(
+        await madRAG.parse_native(
             rag,
             "doc-test",
             str(source_path),
@@ -1929,13 +1929,13 @@ async def test_parse_native_docx_empty_content_list_result_raises_without_fallba
         raise AssertionError("plain text fallback should not run")
 
     monkeypatch.setattr(
-        "lightrag.parser.docx.parse_document.extract_docx_blocks",
+        "madrag.parser.docx.parse_document.extract_docx_blocks",
         lambda *args, **kwargs: [],
     )
     monkeypatch.setattr(_document_routes, "_extract_docx", _fail_fallback)
 
     with pytest.raises(ValueError, match="empty content"):
-        await LightRAG.parse_native(
+        await madRAG.parse_native(
             rag,
             "doc-test",
             str(source_path),
@@ -1946,7 +1946,7 @@ async def test_parse_native_docx_empty_content_list_result_raises_without_fallba
     assert rag.full_docs.events == []
 
 
-def test_lightrag_document_reprocess_uses_full_docs_without_reparse():
+def test_madrag_document_reprocess_uses_full_docs_without_reparse():
     engine = resolve_stored_document_parser_engine(
         "report.[mineru].docx",
         {

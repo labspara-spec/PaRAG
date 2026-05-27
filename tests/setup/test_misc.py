@@ -57,8 +57,8 @@ def test_existing_ssl_env_keeps_compose_mount_overrides(tmp_path: Path) -> None:
         "\n".join(
             [
                 "services:",
-                "  lightrag:",
-                "    image: example/lightrag:test",
+                "  madrag:",
+                "    image: example/madrag:test",
                 "    env_file:",
                 "      - .env",
             ]
@@ -123,8 +123,8 @@ def test_finalize_base_setup_rewrites_ssl_env_to_preserved_compose_paths(
         tmp_path / "docker-compose.final.yml",
         [
             "services:",
-            "  lightrag:",
-            "    image: example/lightrag:test",
+            "  madrag:",
+            "    image: example/madrag:test",
             "    volumes:",
             "      - ./.env:/app/.env",
             "      - ./data/certs/server.pem:/app/data/certs/server.pem:ro",
@@ -145,7 +145,7 @@ initialize_default_storage_backends
 show_summary() {{ :; }}
 confirm_default_yes() {{
   case "$1" in
-    "All wizard-managed services have been removed. Remove LightRAG from Docker and switch to host mode?") return 1 ;;
+    "All wizard-managed services have been removed. Remove madRAG from Docker and switch to host mode?") return 1 ;;
     *) return 0 ;;
   esac
 }}
@@ -173,8 +173,8 @@ def test_removing_ssl_strips_wizard_bind_mounts_from_compose(tmp_path: Path) -> 
         "\n".join(
             [
                 "services:",
-                "  lightrag:",
-                "    image: example/lightrag:test",
+                "  madrag:",
+                "    image: example/madrag:test",
                 "    volumes:",
                 '      - "./data/certs/cert.pem:/app/data/certs/cert.pem:ro"',
                 '      - "./data/certs/key.pem:/app/data/certs/key.pem:ro"',
@@ -212,15 +212,15 @@ def test_find_generated_compose_file_prefers_final_compose_file(tmp_path: Path) 
     write_text_lines(tmp_path / ".env", ["HOST=0.0.0.0"])
     write_text_lines(
         tmp_path / "docker-compose.final.yml",
-        ["services:", "  lightrag:", "    image: final/lightrag"],
+        ["services:", "  madrag:", "    image: final/madrag"],
     )
     write_text_lines(
         tmp_path / "docker-compose.development.yml",
-        ["services:", "  lightrag:", "    image: dev/lightrag"],
+        ["services:", "  madrag:", "    image: dev/madrag"],
     )
     write_text_lines(
         tmp_path / "docker-compose.production.yml",
-        ["services:", "  lightrag:", "    image: prod/lightrag"],
+        ["services:", "  madrag:", "    image: prod/madrag"],
     )
     output = run_bash(f"""
 set -euo pipefail
@@ -240,11 +240,11 @@ def test_find_generated_compose_file_falls_back_to_order_without_profile(
     write_text_lines(tmp_path / ".env", ["HOST=0.0.0.0"])
     write_text_lines(
         tmp_path / "docker-compose.development.yml",
-        ["services:", "  lightrag:", "    image: dev/lightrag"],
+        ["services:", "  madrag:", "    image: dev/madrag"],
     )
     write_text_lines(
         tmp_path / "docker-compose.production.yml",
-        ["services:", "  lightrag:", "    image: prod/lightrag"],
+        ["services:", "  madrag:", "    image: prod/madrag"],
     )
     output = run_bash(f"""
 set -euo pipefail
@@ -445,8 +445,8 @@ def test_finalize_base_setup_uses_compose_native_storage_endpoints_on_rerun(
         tmp_path / "docker-compose.final.yml",
         [
             "services:",
-            "  lightrag:",
-            "    image: example/lightrag:test",
+            "  madrag:",
+            "    image: example/madrag:test",
             "  neo4j:",
             "    image: neo4j:latest",
             "  milvus:",
@@ -510,7 +510,7 @@ def test_finalize_base_setup_migrates_mongodb_to_atlas_local_for_mongo_vector_st
             "LIGHTRAG_GRAPH_STORAGE=MongoGraphStorage",
             "LIGHTRAG_DOC_STATUS_STORAGE=MongoDocStatusStorage",
             "MONGO_URI=mongodb://localhost:27017/?directConnection=true",
-            "MONGO_DATABASE=LightRAG",
+            "MONGO_DATABASE=madRAG",
         ],
     )
     write_text_lines(
@@ -521,8 +521,8 @@ def test_finalize_base_setup_migrates_mongodb_to_atlas_local_for_mongo_vector_st
         tmp_path / "docker-compose.final.yml",
         [
             "services:",
-            "  lightrag:",
-            "    image: example/lightrag:test",
+            "  madrag:",
+            "    image: example/madrag:test",
             "  mongodb:",
             "    image: mongo:8.2.4",
             "    volumes:",
@@ -564,7 +564,7 @@ def test_finalize_base_setup_rejects_invalid_preserved_mongo_vector_config(
             "LIGHTRAG_GRAPH_STORAGE=MongoGraphStorage",
             "LIGHTRAG_DOC_STATUS_STORAGE=MongoDocStatusStorage",
             "MONGO_URI=mongodb://mongo.example.com:27017/?directConnection=true",
-            "MONGO_DATABASE=LightRAG",
+            "MONGO_DATABASE=madRAG",
         ],
     )
     write_text_lines(
@@ -575,8 +575,8 @@ def test_finalize_base_setup_rejects_invalid_preserved_mongo_vector_config(
         tmp_path / "docker-compose.final.yml",
         [
             "services:",
-            "  lightrag:",
-            "    image: example/lightrag:test",
+            "  madrag:",
+            "    image: example/madrag:test",
             "  mongodb:",
             "    image: mongo:8.2.4",
             "    volumes:",
@@ -641,8 +641,8 @@ def test_finalize_base_setup_drops_stale_storage_services_missing_from_env_marke
         tmp_path / "docker-compose.final.yml",
         [
             "services:",
-            "  lightrag:",
-            "    image: example/lightrag:test",
+            "  madrag:",
+            "    image: example/madrag:test",
             "  redis:",
             "    image: redis:latest",
             "  qdrant:",
@@ -667,7 +667,7 @@ finalize_base_setup
 """)
     result = (tmp_path / "docker-compose.final.yml").read_text(encoding="utf-8")
     generated_env = (tmp_path / ".env").read_text(encoding="utf-8")
-    assert "  lightrag:" in result
+    assert "  madrag:" in result
     assert "  redis:" not in result
     assert "  qdrant:" not in result
     assert "redis_data:" not in result
@@ -744,12 +744,12 @@ ORIGINAL_ENV_VALUES[POSTGRES_HOST]="localhost"
 ORIGINAL_ENV_VALUES[POSTGRES_PORT]="5432"
 ORIGINAL_ENV_VALUES[POSTGRES_USER]="rag"
 ORIGINAL_ENV_VALUES[POSTGRES_PASSWORD]="rag"
-ORIGINAL_ENV_VALUES[POSTGRES_DATABASE]="lightrag"
+ORIGINAL_ENV_VALUES[POSTGRES_DATABASE]="madrag"
 ENV_VALUES[POSTGRES_HOST]="localhost"
 ENV_VALUES[POSTGRES_PORT]="5432"
 ENV_VALUES[POSTGRES_USER]="rag"
 ENV_VALUES[POSTGRES_PASSWORD]="rag"
-ENV_VALUES[POSTGRES_DATABASE]="lightrag"
+ENV_VALUES[POSTGRES_DATABASE]="madrag"
 ENV_VALUES[{changed_key}]="{changed_value}"
 
 configure_storage_compose_rewrites
@@ -785,8 +785,8 @@ def test_configure_mongodb_compose_migration_rewrite_only_runs_for_atlas_local_v
         tmp_path / "docker-compose.final.yml",
         [
             "services:",
-            "  lightrag:",
-            "    image: example/lightrag:test",
+            "  madrag:",
+            "    image: example/madrag:test",
             "  mongodb:",
             "    image: mongo:8.2.4",
             "    volumes:",
@@ -825,8 +825,8 @@ def test_configure_mongodb_compose_migration_rewrite_repairs_missing_mongot_volu
         tmp_path / "docker-compose.final.yml",
         [
             "services:",
-            "  lightrag:",
-            "    image: example/lightrag:test",
+            "  madrag:",
+            "    image: example/madrag:test",
             "  mongodb:",
             "    image: mongodb/mongodb-atlas-local:8",
             "    volumes:",
@@ -868,8 +868,8 @@ def test_switching_to_non_docker_storage_removes_stale_services_from_compose(
         "\n".join(
             [
                 "services:",
-                "  lightrag:",
-                "    image: example/lightrag:test",
+                "  madrag:",
+                "    image: example/madrag:test",
                 "  postgres:",
                 "    image: gzdaniel/postgres-for-rag:pg18-age-pgvector",
                 "  neo4j:",
@@ -922,7 +922,7 @@ env_storage_flow
     assert "neo4j:" not in result
     assert "postgres_data:" not in result
     assert "neo4j_data:" not in result
-    assert "  lightrag:" in result
+    assert "  madrag:" in result
     assert "  sidecar:" in result
     assert "sidecar_data:" in result
 
@@ -1030,8 +1030,8 @@ def test_finalize_server_setup_skips_embedded_milvus_sub_services(
         "\n".join(
             [
                 "services:",
-                "  lightrag:",
-                "    image: example/lightrag:test",
+                "  madrag:",
+                "    image: example/madrag:test",
                 "  milvus:",
                 "    image: milvusdb/milvus:v2.6.11",
                 "  milvus-etcd:",
@@ -1100,8 +1100,8 @@ def test_finalize_server_setup_uses_compose_native_neo4j_endpoint_on_rerun(
         tmp_path / "docker-compose.final.yml",
         [
             "services:",
-            "  lightrag:",
-            "    image: example/lightrag:test",
+            "  madrag:",
+            "    image: example/madrag:test",
             "  neo4j:",
             "    image: neo4j:latest",
         ],
@@ -1137,7 +1137,7 @@ def test_finalize_server_setup_migrates_mongodb_to_atlas_local_for_mongo_vector_
             "LIGHTRAG_GRAPH_STORAGE=MongoGraphStorage",
             "LIGHTRAG_DOC_STATUS_STORAGE=MongoDocStatusStorage",
             "MONGO_URI=mongodb://localhost:27017/?directConnection=true",
-            "MONGO_DATABASE=LightRAG",
+            "MONGO_DATABASE=madRAG",
             "HOST=0.0.0.0",
             "PORT=9621",
         ],
@@ -1150,8 +1150,8 @@ def test_finalize_server_setup_migrates_mongodb_to_atlas_local_for_mongo_vector_
         tmp_path / "docker-compose.final.yml",
         [
             "services:",
-            "  lightrag:",
-            "    image: example/lightrag:test",
+            "  madrag:",
+            "    image: example/madrag:test",
             "  mongodb:",
             "    image: mongo:8.2.4",
             "    volumes:",
@@ -1193,7 +1193,7 @@ def test_finalize_server_setup_rejects_invalid_preserved_mongo_vector_config(
             "LIGHTRAG_GRAPH_STORAGE=MongoGraphStorage",
             "LIGHTRAG_DOC_STATUS_STORAGE=MongoDocStatusStorage",
             "MONGO_URI=mongodb://mongo.example.com:27017/?directConnection=true",
-            "MONGO_DATABASE=LightRAG",
+            "MONGO_DATABASE=madRAG",
             "HOST=0.0.0.0",
             "PORT=9621",
         ],
@@ -1206,8 +1206,8 @@ def test_finalize_server_setup_rejects_invalid_preserved_mongo_vector_config(
         tmp_path / "docker-compose.final.yml",
         [
             "services:",
-            "  lightrag:",
-            "    image: example/lightrag:test",
+            "  madrag:",
+            "    image: example/madrag:test",
             "  mongodb:",
             "    image: mongo:8.2.4",
             "    volumes:",
@@ -1254,8 +1254,8 @@ def test_finalize_server_setup_drops_stale_managed_services_missing_from_env_mar
         tmp_path / "docker-compose.final.yml",
         [
             "services:",
-            "  lightrag:",
-            "    image: example/lightrag:test",
+            "  madrag:",
+            "    image: example/madrag:test",
             "  redis:",
             "    image: redis:latest",
             "  vllm-embed:",
@@ -1278,7 +1278,7 @@ collect_ssl_config() {{ :; }}
 confirm_required_yes_no() {{ return 0; }}
 confirm_default_yes() {{
   case "$1" in
-    "All wizard-managed services have been removed. Remove LightRAG from Docker and switch to host mode?") return 1 ;;
+    "All wizard-managed services have been removed. Remove madRAG from Docker and switch to host mode?") return 1 ;;
     *) return 0 ;;
   esac
 }}
@@ -1292,7 +1292,7 @@ finalize_server_setup
     assert "  vllm-embed:" not in result
     assert "redis_data:" not in result
     assert "vllm_embed_cache:" not in result
-    assert "  lightrag:" in result
+    assert "  madrag:" in result
     assert "LIGHTRAG_RUNTIME_TARGET=compose" in generated_env
 
 
@@ -1304,8 +1304,8 @@ def test_detect_managed_root_services_deduplicates_embedded_milvus_children(
         tmp_path / "docker-compose.final.yml",
         [
             "services:",
-            "  lightrag:",
-            "    image: example/lightrag:test",
+            "  madrag:",
+            "    image: example/madrag:test",
             "  milvus:",
             "    image: milvusdb/milvus:v2.6.11",
             "  milvus-etcd:",
@@ -1332,8 +1332,8 @@ def test_detect_managed_root_services_groups_opensearch_dashboards_under_opensea
         tmp_path / "docker-compose.final.yml",
         [
             "services:",
-            "  lightrag:",
-            "    image: example/lightrag:test",
+            "  madrag:",
+            "    image: example/madrag:test",
             "  opensearch:",
             "    image: opensearchproject/opensearch:3",
             "  dashboards:",
@@ -1357,8 +1357,8 @@ def test_compose_has_non_wizard_services_ignores_orphan_dashboards(
         compose_file,
         [
             "services:",
-            "  lightrag:",
-            "    image: example/lightrag:test",
+            "  madrag:",
+            "    image: example/madrag:test",
             "  dashboards:",
             "    image: opensearchproject/opensearch-dashboards:3",
         ],
@@ -1542,8 +1542,8 @@ def test_ssl_staging_uses_distinct_names_for_same_basename_inputs(
         "\n".join(
             [
                 "services:",
-                "  lightrag:",
-                "    image: example/lightrag:test",
+                "  madrag:",
+                "    image: example/madrag:test",
                 "    env_file:",
                 "      - .env",
             ]
@@ -1641,9 +1641,9 @@ stage_ssl_assets "./data/certs/server.pem" "./data/certs/server.key\"
                 "LIGHTRAG_VECTOR_STORAGE=NanoVectorDBStorage",
                 "LIGHTRAG_GRAPH_STORAGE=NetworkXStorage",
                 "LIGHTRAG_DOC_STATUS_STORAGE=PGDocStatusStorage",
-                "POSTGRES_USER=lightrag",
+                "POSTGRES_USER=madrag",
                 "POSTGRES_PASSWORD=secret",
-                "POSTGRES_DATABASE=lightrag",
+                "POSTGRES_DATABASE=madrag",
             ],
             'add_docker_service "postgres"',
             "finalize_storage_setup",
@@ -1895,7 +1895,7 @@ def test_security_check_ignores_default_opensearch_password_when_opensearch_unus
             "LIGHTRAG_VECTOR_STORAGE=NanoVectorDBStorage",
             "LIGHTRAG_GRAPH_STORAGE=NetworkXStorage",
             "LIGHTRAG_DOC_STATUS_STORAGE=JsonDocStatusStorage",
-            "OPENSEARCH_PASSWORD=LightRAG2026_!@",
+            "OPENSEARCH_PASSWORD=madRAG2026_!@",
         ],
     )
     result = subprocess.run(
@@ -1935,7 +1935,7 @@ def test_security_check_reports_default_opensearch_password_when_opensearch_sele
             "LIGHTRAG_DOC_STATUS_STORAGE=OpenSearchDocStatusStorage",
             "OPENSEARCH_HOSTS=localhost:9200",
             "OPENSEARCH_USER=admin",
-            "OPENSEARCH_PASSWORD=LightRAG2026_!@",
+            "OPENSEARCH_PASSWORD=madRAG2026_!@",
         ],
     )
     result = subprocess.run(
@@ -2003,7 +2003,7 @@ fi
 def test_backup_only_backs_up_env_and_generated_compose(tmp_path: Path) -> None:
     """backup_only should back up both .env and the active generated compose file."""
     compose_content = (
-        "\n".join(["services:", "  lightrag:", "    image: example/lightrag:test"])
+        "\n".join(["services:", "  madrag:", "    image: example/madrag:test"])
         + "\n"
     )
     write_text_lines(tmp_path / ".env", ["HOST=0.0.0.0"])

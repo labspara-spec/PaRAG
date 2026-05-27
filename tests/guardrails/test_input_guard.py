@@ -1,8 +1,8 @@
 """Tests for InputGuard — AITG-APP-01 and AITG-APP-03."""
 
 import pytest
-from lightrag.guardrails.input_guard import InputGuard
-from lightrag.guardrails.base import ViolationType
+from madrag.guardrails.input_guard import InputGuard
+from madrag.guardrails.base import ViolationType
 
 
 @pytest.fixture

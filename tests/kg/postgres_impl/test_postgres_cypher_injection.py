@@ -10,7 +10,7 @@ import json
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from lightrag.kg.postgres_impl import PGGraphStorage
+from madrag.kg.postgres_impl import PGGraphStorage
 
 
 # ---------------------------------------------------------------------------

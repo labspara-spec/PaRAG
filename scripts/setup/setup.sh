@@ -579,7 +579,7 @@ prepare_compose_runtime_overrides() {
   local key
   local root_service
 
-  # EMBEDDING_BINDING_HOST: when vllm-embed is part of this compose, the LightRAG
+  # EMBEDDING_BINDING_HOST: when vllm-embed is part of this compose, the madRAG
   # container must reach it by Docker service name, not by a loopback address.
   # This applies even when the wizard did not visit the embedding step (e.g.
   # env_server_flow), because vllm-embed is detected and added to DOCKER_SERVICE_SET
@@ -681,7 +681,7 @@ prepare_compose_ssl_overrides() {
 
 prepare_compose_data_path_overrides() {
   # Compose mounts always bind the data directories into these container paths.
-  # Force lightrag to use them so values from the mounted .env cannot redirect
+  # Force madrag to use them so values from the mounted .env cannot redirect
   # storage into a different location.
   set_compose_override "WORKING_DIR" "$COMPOSE_LIGHTRAG_WORKING_DIR"
   set_compose_override "INPUT_DIR" "$COMPOSE_LIGHTRAG_INPUT_DIR"
@@ -771,7 +771,7 @@ resolve_compose_output_action() {
   fi
 
   if [[ -n "$existing_compose" ]]; then
-    if confirm_default_no "All wizard-managed services have been removed. Remove LightRAG from Docker and switch to host mode?"; then
+    if confirm_default_no "All wizard-managed services have been removed. Remove madRAG from Docker and switch to host mode?"; then
       action_ref="delete_compose_and_switch_host"
       runtime_target_ref="host"
       host_hint_ref="yes"
@@ -783,14 +783,14 @@ resolve_compose_output_action() {
   fi
 
   if [[ "$current_target" == "compose" ]]; then
-    if confirm_default_yes "Run LightRAG Server via Docker?"; then
+    if confirm_default_yes "Run madRAG Server via Docker?"; then
       action_ref="rewrite_compose"
       runtime_target_ref="compose"
     else
       host_hint_ref="yes"
     fi
   else
-    if confirm_default_no "Run LightRAG Server via Docker?"; then
+    if confirm_default_no "Run madRAG Server via Docker?"; then
       action_ref="rewrite_compose"
       runtime_target_ref="compose"
     else
@@ -1341,13 +1341,13 @@ collect_postgres_config() {
 
   # The bundled postgres image creates its user/password/database from the
   # POSTGRES_USER/POSTGRES_PASSWORD/POSTGRES_DB env vars on first start, so docker
-  # and host deployments share the same prompts and defaults (rag/rag/lightrag).
+  # and host deployments share the same prompts and defaults (rag/rag/madrag).
   existing_user="${ORIGINAL_ENV_VALUES[POSTGRES_USER]-${ENV_VALUES[POSTGRES_USER]:-}}"
   existing_password="${ORIGINAL_ENV_VALUES[POSTGRES_PASSWORD]-${ENV_VALUES[POSTGRES_PASSWORD]:-}}"
   existing_database="${ORIGINAL_ENV_VALUES[POSTGRES_DATABASE]-${ENV_VALUES[POSTGRES_DATABASE]:-}}"
   user="$(prompt_with_default "PostgreSQL user" "${existing_user:-rag}")"
   password="$(prompt_secret_with_default "PostgreSQL password: " "${existing_password:-rag}")"
-  database="$(prompt_with_default "PostgreSQL database" "${existing_database:-lightrag}")"
+  database="$(prompt_with_default "PostgreSQL database" "${existing_database:-madrag}")"
 
   ENV_VALUES["POSTGRES_HOST"]="$host"
   ENV_VALUES["POSTGRES_PORT"]="$port"
@@ -1456,7 +1456,7 @@ collect_mongodb_config() {
     uri="$(normalize_mongodb_uri_for_local_service "$uri")"
   fi
   existing_database="${ORIGINAL_ENV_VALUES[MONGO_DATABASE]-${ENV_VALUES[MONGO_DATABASE]:-}}"
-  database="$(prompt_with_default "MongoDB database" "${existing_database:-LightRAG}")"
+  database="$(prompt_with_default "MongoDB database" "${existing_database:-madRAG}")"
 
   ENV_VALUES["MONGO_URI"]="$uri"
   ENV_VALUES["MONGO_DATABASE"]="$database"
@@ -1543,7 +1543,7 @@ collect_milvus_config() {
   else
     uri="$(prompt_until_valid "Milvus URI" "$uri" validate_uri milvus)"
   fi
-  db_name="$(prompt_with_default "Milvus database name" "${existing_db_name:-lightrag}")"
+  db_name="$(prompt_with_default "Milvus database name" "${existing_db_name:-madrag}")"
 
   ENV_VALUES["MILVUS_URI"]="$uri"
   ENV_VALUES["MILVUS_DB_NAME"]="$db_name"
@@ -1675,7 +1675,7 @@ collect_opensearch_config() {
 
   hosts="$(prompt_until_valid "OpenSearch hosts (host:port, comma-separated)" "$hosts" validate_opensearch_hosts_format)"
   user="$(prompt_with_default "OpenSearch user" "${existing_user:-admin}")"
-  password="$(prompt_secret_until_valid_with_default "OpenSearch password: " "${existing_password:-LightRAG2026_!@}" validate_opensearch_password_strength)"
+  password="$(prompt_secret_until_valid_with_default "OpenSearch password: " "${existing_password:-madRAG2026_!@}" validate_opensearch_password_strength)"
 
   if [[ "$use_docker" == "yes" ]]; then
     if [[ -n "$existing_use_ssl" ]]; then
@@ -2183,7 +2183,7 @@ collect_security_config() {
   auth_accounts="$(prompt_clearable_with_default "Auth accounts (user:pass,comma-separated)" "${ENV_VALUES[AUTH_ACCOUNTS]:-}")"
   token_secret="$(prompt_clearable_secret_with_default "JWT token secret: " "${ENV_VALUES[TOKEN_SECRET]:-}")"
   token_expire="$(prompt_clearable_with_default "Token expire hours" "${ENV_VALUES[TOKEN_EXPIRE_HOURS]:-48}")"
-  api_key="$(prompt_clearable_secret_with_default "LightRAG API key: " "${ENV_VALUES[LIGHTRAG_API_KEY]:-}")"
+  api_key="$(prompt_clearable_secret_with_default "madRAG API key: " "${ENV_VALUES[LIGHTRAG_API_KEY]:-}")"
   whitelist="$(prompt_clearable_with_default "Whitelist paths (comma-separated)" "$whitelist_default")"
   if [[ "$whitelist_is_set" == "yes" && -z "$whitelist_default" && -z "$whitelist" ]]; then
     whitelist="$CLEAR_INPUT_SENTINEL"
@@ -2289,7 +2289,7 @@ prepare_inherited_ssl_assets_for_compose() {
 
   if [[ -n "$SSL_CERT_SOURCE_PATH" ]] && ! validate_existing_file "$SSL_CERT_SOURCE_PATH"; then
     if [[ -n "$existing_compose" ]]; then
-      preserved_cert_path="$(read_service_environment_value "$existing_compose" "lightrag" "SSL_CERTFILE" || true)"
+      preserved_cert_path="$(read_service_environment_value "$existing_compose" "madrag" "SSL_CERTFILE" || true)"
     fi
     if [[ "$preserved_cert_path" == /app/data/certs/* ]]; then
       log_warn "SSL_CERTFILE source is missing; preserving the existing compose SSL certificate mount."
@@ -2305,7 +2305,7 @@ prepare_inherited_ssl_assets_for_compose() {
 
   if [[ -n "$SSL_KEY_SOURCE_PATH" ]] && ! validate_existing_file "$SSL_KEY_SOURCE_PATH"; then
     if [[ -n "$existing_compose" ]]; then
-      preserved_key_path="$(read_service_environment_value "$existing_compose" "lightrag" "SSL_KEYFILE" || true)"
+      preserved_key_path="$(read_service_environment_value "$existing_compose" "madrag" "SSL_KEYFILE" || true)"
     fi
     if [[ "$preserved_key_path" == /app/data/certs/* ]]; then
       log_warn "SSL_KEYFILE source is missing; preserving the existing compose SSL key mount."
@@ -2556,10 +2556,10 @@ finalize_base_setup() {
   configure_base_compose_rewrites
 
   if ((${#DOCKER_SERVICES[@]} > 0)); then
-    # LightRAG depends on managed Docker services; it must run via Docker.
+    # madRAG depends on managed Docker services; it must run via Docker.
     svc_names="$(printf '%s ' "${DOCKER_SERVICES[@]}")"
     svc_names="${svc_names% }"
-    echo "LightRAG requires Docker services: ${svc_names}"
+    echo "madRAG requires Docker services: ${svc_names}"
     if ! confirm_default_yes "${COLOR_YELLOW}The compose file will be created/updated. Continue?${COLOR_RESET}"; then
       log_warn "Setup cancelled."
       return 1
@@ -2604,11 +2604,11 @@ finalize_base_setup() {
       ;;
     delete_compose_and_switch_host)
       remove_existing_compose_file "$existing_compose" || return 1
-      echo "  To start: lightrag-server"
+      echo "  To start: madrag-server"
       ;;
     *)
       if [[ "$show_host_start_hint" == "yes" ]]; then
-        echo "  To start: lightrag-server"
+        echo "  To start: madrag-server"
       fi
       ;;
   esac
@@ -2735,11 +2735,11 @@ finalize_storage_setup() {
       ;;
     delete_compose_and_switch_host)
       remove_existing_compose_file "$existing_compose" || return 1
-      echo "  To start: lightrag-server"
+      echo "  To start: madrag-server"
       ;;
     *)
       if [[ "$show_host_start_hint" == "yes" ]]; then
-        echo "  To start: lightrag-server"
+        echo "  To start: madrag-server"
       fi
       ;;
   esac
@@ -2876,15 +2876,15 @@ finalize_server_setup() {
       generate_docker_compose "$compose_file"
       log_success "Wrote ${compose_file}"
       log_success "Server port and security settings updated in compose."
-      echo "  To restart: docker compose -f ${compose_file} up -d --force-recreate lightrag"
+      echo "  To restart: docker compose -f ${compose_file} up -d --force-recreate madrag"
       ;;
     delete_compose_and_switch_host)
       remove_existing_compose_file "$existing_compose" || return 1
-      echo "  To start: lightrag-server"
+      echo "  To start: madrag-server"
       ;;
     *)
       if [[ "$show_host_start_hint" == "yes" ]]; then
-        echo "  To start: lightrag-server"
+        echo "  To start: madrag-server"
       fi
       ;;
   esac
@@ -3152,7 +3152,7 @@ security_check_env_file() {
     elif ! validate_auth_accounts_password_safety "$auth_accounts"; then
       report_security_issue \
         "AUTH_ACCOUNTS uses a predictable password prefix." \
-        "Passwords must not start with 'admin' or 'pass'. Choose a stronger password or use lightrag-hash-password."
+        "Passwords must not start with 'admin' or 'pass'. Choose a stronger password or use madrag-hash-password."
       findings=$((findings + 1))
     fi
 
@@ -3161,7 +3161,7 @@ security_check_env_file() {
         "AUTH_ACCOUNTS is set but TOKEN_SECRET is missing." \
         "Set a non-empty JWT signing secret before enabling account-based authentication."
       findings=$((findings + 1))
-    elif [[ "$token_secret" == "lightrag-jwt-default-secret" ]]; then
+    elif [[ "$token_secret" == "madrag-jwt-default-secret" ]]; then
       report_security_issue \
         "TOKEN_SECRET still uses the built-in default value." \
         "Generate a unique JWT signing secret and update TOKEN_SECRET."
@@ -3195,7 +3195,7 @@ security_check_env_file() {
 
   if [[ "$opensearch_in_use" == "yes" ]] && [[ -n "${ENV_VALUES[OPENSEARCH_PASSWORD]:-}" ]]; then
     local os_pass="${ENV_VALUES[OPENSEARCH_PASSWORD]}"
-    if [[ "$os_pass" == "admin" || "$os_pass" == "LightRAG2026_!@" ]]; then
+    if [[ "$os_pass" == "admin" || "$os_pass" == "madRAG2026_!@" ]]; then
       report_security_issue \
         "OPENSEARCH_PASSWORD uses a well-known default value." \
         "Set a unique, strong password for the OpenSearch admin account."

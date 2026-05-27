@@ -45,26 +45,26 @@ def _load_gemini_module(monkeypatch, request):
     monkeypatch.setitem(sys.modules, "google.api_core", fake_google_api_core)
     monkeypatch.setitem(sys.modules, "google.api_core.exceptions", fake_api_exceptions)
 
-    # Force a fresh import of lightrag.llm.gemini against the fakes above,
+    # Force a fresh import of madrag.llm.gemini against the fakes above,
     # and restore the original module (or absence) on teardown — otherwise
     # subsequent tests (e.g. tests/llm/test_asymmetric_embedding.py) inherit
     # this stubbed `genai.types` namespace and break with AttributeError on
     # types.EmbedContentConfig. Note: clearing sys.modules alone is not
     # enough — Python also caches the submodule as an attribute on the parent
-    # package, and `from lightrag.llm import gemini` resolves via that
+    # package, and `from madrag.llm import gemini` resolves via that
     # attribute. Both pointers must be cleared.
-    parent = sys.modules.get("lightrag.llm")
-    original_gemini = sys.modules.get("lightrag.llm.gemini")
+    parent = sys.modules.get("madrag.llm")
+    original_gemini = sys.modules.get("madrag.llm.gemini")
     original_parent_attr = getattr(parent, "gemini", None) if parent else None
-    sys.modules.pop("lightrag.llm.gemini", None)
+    sys.modules.pop("madrag.llm.gemini", None)
     if parent is not None and hasattr(parent, "gemini"):
         delattr(parent, "gemini")
 
     def _restore_gemini():
         if original_gemini is not None:
-            sys.modules["lightrag.llm.gemini"] = original_gemini
+            sys.modules["madrag.llm.gemini"] = original_gemini
         else:
-            sys.modules.pop("lightrag.llm.gemini", None)
+            sys.modules.pop("madrag.llm.gemini", None)
         if parent is not None:
             if original_parent_attr is not None:
                 parent.gemini = original_parent_attr
@@ -73,7 +73,7 @@ def _load_gemini_module(monkeypatch, request):
 
     request.addfinalizer(_restore_gemini)
 
-    return importlib.import_module("lightrag.llm.gemini")
+    return importlib.import_module("madrag.llm.gemini")
 
 
 def _make_fake_gemini_response(regular_text="", thought_text=""):

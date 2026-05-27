@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from lightrag.llm.lmdeploy import lmdeploy_model_if_cache
-from lightrag.llm.lollms import lollms_model_complete, lollms_model_if_cache
+from madrag.llm.lmdeploy import lmdeploy_model_if_cache
+from madrag.llm.lollms import lollms_model_complete, lollms_model_if_cache
 
 
 @pytest.mark.offline
@@ -40,7 +40,7 @@ async def test_lollms_if_cache_strips_response_format_before_request():
             captured_requests.append(json)
             return FakeResponse()
 
-    with patch("lightrag.llm.lollms.aiohttp.ClientSession", FakeSession):
+    with patch("madrag.llm.lollms.aiohttp.ClientSession", FakeSession):
         result = await lollms_model_if_cache(
             model="lollms-model",
             prompt="hello",
@@ -78,7 +78,7 @@ async def test_lollms_if_cache_emits_deprecation_warning():
         def post(self, url, json):
             return FakeResponse()
 
-    with patch("lightrag.llm.lollms.aiohttp.ClientSession", FakeSession):
+    with patch("madrag.llm.lollms.aiohttp.ClientSession", FakeSession):
         with pytest.warns(DeprecationWarning):
             await lollms_model_if_cache(
                 model="lollms-model",
@@ -93,7 +93,7 @@ async def test_lollms_complete_forwards_legacy_flag_downstream():
     hashing_kv = SimpleNamespace(global_config={"llm_model_name": "lollms-model"})
 
     with patch(
-        "lightrag.llm.lollms.lollms_model_if_cache",
+        "madrag.llm.lollms.lollms_model_if_cache",
         AsyncMock(return_value="{}"),
     ) as mocked_complete:
         await lollms_model_complete(
@@ -122,7 +122,7 @@ async def test_lmdeploy_strips_response_format_before_generation_config(monkeypa
         yield SimpleNamespace(response="{}")
 
     monkeypatch.setattr(
-        "lightrag.llm.lmdeploy.initialize_lmdeploy_pipeline",
+        "madrag.llm.lmdeploy.initialize_lmdeploy_pipeline",
         lambda **_kwargs: SimpleNamespace(generate=fake_generate),
     )
 

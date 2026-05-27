@@ -1,10 +1,10 @@
 import pytest
 
-from lightrag.base import DocStatus
-from lightrag.kg.json_doc_status_impl import JsonDocStatusStorage
-from lightrag.kg.json_kv_impl import JsonKVStorage
-from lightrag.kg.shared_storage import finalize_share_data, initialize_share_data
-from lightrag.namespace import NameSpace
+from madrag.base import DocStatus
+from madrag.kg.json_doc_status_impl import JsonDocStatusStorage
+from madrag.kg.json_kv_impl import JsonKVStorage
+from madrag.kg.shared_storage import finalize_share_data, initialize_share_data
+from madrag.namespace import NameSpace
 
 pytestmark = pytest.mark.offline
 

@@ -1,4 +1,4 @@
-# LightRAG Docker Deployment
+# madRAG Docker Deployment
 
 A lightweight Knowledge Graph Retrieval-Augmented Generation system with multiple LLM backend support.
 
@@ -8,13 +8,13 @@ A lightweight Knowledge Graph Retrieval-Augmented Generation system with multipl
 
 ```bash
 # Linux/MacOS
-git clone https://github.com/HKUDS/LightRAG.git
-cd LightRAG
+git clone https://github.com/HKUDS/madRAG.git
+cd madRAG
 ```
 ```powershell
 # Windows PowerShell
-git clone https://github.com/HKUDS/LightRAG.git
-cd LightRAG
+git clone https://github.com/HKUDS/madRAG.git
+cd madRAG
 ```
 
 ### Configure your environment:
@@ -30,7 +30,7 @@ Copy-Item env.example .env
 # Edit .env with your preferred configuration
 ```
 
-LightRAG can be configured using environment variables in the `.env` file:
+madRAG can be configured using environment variables in the `.env` file:
 
 **Server Configuration**
 
@@ -74,7 +74,7 @@ The Dockerfile uses BuildKit cache mounts to significantly improve build perform
 - **Efficient package caching**: UV and Bun package downloads are cached across builds
 - **No manual configuration needed**: Works out of the box in Docker Compose and GitHub Actions
 
-### Start LightRAG  server:
+### Start madRAG  server:
 
 ```bash
 docker compose up -d
@@ -86,7 +86,7 @@ If you used the interactive setup, start the generated stack with:
 docker compose -f docker-compose.final.yml up -d
 ```
 
-The interactive setup keeps `.env` host-usable. Container-only hostnames such as `postgres` or `host.docker.internal`, along with staged SSL paths under `/app/data/certs/`, are injected into the generated `docker-compose.final.yml` for the `lightrag` service instead of being persisted back into `.env`.
+The interactive setup keeps `.env` host-usable. Container-only hostnames such as `postgres` or `host.docker.internal`, along with staged SSL paths under `/app/data/certs/`, are injected into the generated `docker-compose.final.yml` for the `madrag` service instead of being persisted back into `.env`.
 On reruns, unchanged wizard-managed service blocks in `docker-compose.final.yml` are preserved by
 default. To repair or fully regenerate those managed blocks from the bundled templates, rerun the
 matching setup target with `make env-base-rewrite` or `make env-storage-rewrite`.
@@ -105,7 +105,7 @@ make env-security-check
 That command audits the current `.env` for missing authentication, unsafe whitelist settings, weak
 JWT secrets, and other setup-level security risks without rewriting any files.
 
-LightRAG Server uses the following paths for data storage:
+madRAG Server uses the following paths for data storage:
 
 ```
 data/
@@ -210,7 +210,7 @@ RERANK_BINDING_API_KEY=local-key
 VLLM_RERANK_DEVICE=cpu
 ```
 
-If LightRAG runs in Docker while vLLM runs on the host, the generated compose file rewrites those endpoints to:
+If madRAG runs in Docker while vLLM runs on the host, the generated compose file rewrites those endpoints to:
 
 ```bash
 EMBEDDING_BINDING_HOST=http://host.docker.internal:8001/v1
@@ -239,7 +239,7 @@ This keeps generated host mounts under the same `./data` root used by the defaul
 
 The interactive setup defaults PostgreSQL to `gzdaniel/postgres-for-rag:pg18-age-pgvector`. This image bundles both Apache AGE and pgvector so the generated stack works with `PGGraphStorage` and `PGVectorStorage` without extra extension setup.
 
-The image no longer ships fixed credentials; on first start it creates the user, password, and database from the `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` environment variables. The setup wizard prompts for these values (defaulting to `rag` / `rag` / `lightrag`) and injects them into the generated `docker-compose.final.yml`, so you can choose any user, password, and database name.
+The image no longer ships fixed credentials; on first start it creates the user, password, and database from the `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` environment variables. The setup wizard prompts for these values (defaulting to `rag` / `rag` / `madrag`) and injects them into the generated `docker-compose.final.yml`, so you can choose any user, password, and database name.
 
 **Important Note**: If PGGraphStorage is not required for vector storage, you may replace the upper docker image with the latest official pgvector image `pgvector/pgvector:pg18`. Please note that data file formats are incompatible across different PostgreSQL major versions; once this Docker image is deployed, it cannot be rolled back to a previous version.
 
@@ -288,7 +288,7 @@ docker compose up
 
 ### Offline deployment
 
-Software packages requiring `transformers`, `torch`, or `cuda` are not preinstalled in the docker images. Consequently, document extraction tools such as Docling, as well as local LLM models like Hugging Face and LMDeploy, cannot be used in an offline environment. These high-compute-resource-demanding services should not be integrated into LightRAG. Docling will be decoupled and deployed as a standalone service.
+Software packages requiring `transformers`, `torch`, or `cuda` are not preinstalled in the docker images. Consequently, document extraction tools such as Docling, as well as local LLM models like Hugging Face and LMDeploy, cannot be used in an offline environment. These high-compute-resource-demanding services should not be integrated into madRAG. Docling will be decoupled and deployed as a standalone service.
 
 ## 📦 Build Docker Images
 
@@ -331,13 +331,13 @@ Before building multi-architecture images, ensure you have:
 
 ### Verify official GHCR images with Cosign
 
-Official LightRAG images published to GitHub Container Registry by GitHub Actions are signed with Sigstore Cosign using GitHub OIDC keyless signing.
+Official madRAG images published to GitHub Container Registry by GitHub Actions are signed with Sigstore Cosign using GitHub OIDC keyless signing.
 
 Install `cosign`, then verify the image tag you want to run:
 
 ```bash
-cosign verify ghcr.io/HKUDS/LightRAG:<tag> \
-  --certificate-identity-regexp '^https://github.com/HKUDS/LightRAG/.github/workflows/(docker-publish|docker-build-manual|docker-build-lite)\.yml@refs/.+$' \
+cosign verify ghcr.io/HKUDS/madRAG:<tag> \
+  --certificate-identity-regexp '^https://github.com/HKUDS/madRAG/.github/workflows/(docker-publish|docker-build-manual|docker-build-lite)\.yml@refs/.+$' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 

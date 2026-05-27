@@ -619,7 +619,7 @@ def test_validate_env_file_allows_mongo_vector_storage_with_wizard_managed_atlas
                 "LIGHTRAG_GRAPH_STORAGE=MongoGraphStorage",
                 "LIGHTRAG_DOC_STATUS_STORAGE=MongoDocStatusStorage",
                 "MONGO_URI=mongodb://localhost:27017/?directConnection=true",
-                "MONGO_DATABASE=LightRAG",
+                "MONGO_DATABASE=madRAG",
             ]
         )
         + "\n",
@@ -664,8 +664,8 @@ def test_validate_env_file_allows_external_atlas_local_for_mongo_vector_storage(
                 "LIGHTRAG_VECTOR_STORAGE=MongoVectorDBStorage",
                 "LIGHTRAG_GRAPH_STORAGE=MongoGraphStorage",
                 "LIGHTRAG_DOC_STATUS_STORAGE=MongoDocStatusStorage",
-                "MONGO_URI=mongodb://atlas-local.example.com:27017/LightRAG?replicaSet=rs0&directConnection=true",
-                "MONGO_DATABASE=LightRAG",
+                "MONGO_URI=mongodb://atlas-local.example.com:27017/madRAG?replicaSet=rs0&directConnection=true",
+                "MONGO_DATABASE=madRAG",
             ]
         )
         + "\n",
@@ -712,7 +712,7 @@ def test_validate_env_file_rejects_remote_mongo_uri_with_docker_marker(
                 "LIGHTRAG_GRAPH_STORAGE=MongoGraphStorage",
                 "LIGHTRAG_DOC_STATUS_STORAGE=MongoDocStatusStorage",
                 "MONGO_URI=mongodb://mongo.example.com:27017/?directConnection=true",
-                "MONGO_DATABASE=LightRAG",
+                "MONGO_DATABASE=madRAG",
             ]
         )
         + "\n",
@@ -763,7 +763,7 @@ def test_validate_env_file_rejects_stale_local_mongo_uri_without_direct_connecti
                 "LIGHTRAG_GRAPH_STORAGE=MongoGraphStorage",
                 "LIGHTRAG_DOC_STATUS_STORAGE=MongoDocStatusStorage",
                 "MONGO_URI=mongodb://localhost:27017/",
-                "MONGO_DATABASE=LightRAG",
+                "MONGO_DATABASE=madRAG",
             ]
         )
         + "\n",
@@ -814,7 +814,7 @@ def test_validate_env_file_rejects_wrong_local_mongo_port_with_docker_marker(
                 "LIGHTRAG_GRAPH_STORAGE=MongoGraphStorage",
                 "LIGHTRAG_DOC_STATUS_STORAGE=MongoDocStatusStorage",
                 "MONGO_URI=mongodb://localhost:9999/?directConnection=true",
-                "MONGO_DATABASE=LightRAG",
+                "MONGO_DATABASE=madRAG",
             ]
         )
         + "\n",

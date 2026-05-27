@@ -2,7 +2,7 @@
 
 import pytest
 
-from lightrag.chunk_schema import normalize_chunk_section_meta, CHUNK_EXTENDED_META_FIELDS
+from madrag.chunk_schema import normalize_chunk_section_meta, CHUNK_EXTENDED_META_FIELDS
 
 
 @pytest.mark.offline

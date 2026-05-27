@@ -1,16 +1,16 @@
-# LightRAG 服务器和 WebUI
+# madRAG 服务器和 WebUI
 
-LightRAG 服务器旨在提供 Web 界面和 API 支持。Web 界面便于文档索引、知识图谱探索和简单的 RAG 查询界面。
+madRAG 服务器旨在提供 Web 界面和 API 支持。Web 界面便于文档索引、知识图谱探索和简单的 RAG 查询界面。
 
-![image-20250323122538997](./LightRAG-API-Server.assets/image-20250323122538997.png)
+![image-20250323122538997](./madRAG-API-Server.assets/image-20250323122538997.png)
 
-![image-20250323122754387](./LightRAG-API-Server.assets/image-20250323122754387.png)
+![image-20250323122754387](./madRAG-API-Server.assets/image-20250323122754387.png)
 
-![image-20250323123011220](./LightRAG-API-Server.assets/image-20250323123011220.png)
+![image-20250323123011220](./madRAG-API-Server.assets/image-20250323123011220.png)
 
 ## 从 v1.4.16 升级到 v1.5.0rc2
 
-v1.5.0rc2 引入了新的文件处理流水线、解析器路由、多模态分析、基于角色的 LLM/VLM 配置、JSON 实体抽取以及若干 provider / storage 变更。升级生产实例前，请先阅读 [v1.5.0rc2 发布说明](https://github.com/HKUDS/LightRAG/releases/tag/v1.5.0rc2)。
+v1.5.0rc2 引入了新的文件处理流水线、解析器路由、多模态分析、基于角色的 LLM/VLM 配置、JSON 实体抽取以及若干 provider / storage 变更。升级生产实例前，请先阅读 [v1.5.0rc2 发布说明](https://github.com/HKUDS/madRAG/releases/tag/v1.5.0rc2)。
 
 - 如果希望升级服务器但保持旧版文件处理行为，请设置：
 
@@ -20,7 +20,7 @@ LIGHTRAG_PARSER=*:legacy-F
 
 - `ENTITY_TYPES` 已不再支持。请改用 `ENTITY_TYPE_PROMPT_FILE`，并把 YAML profile 放在 `PROMPT_DIR/entity_type` 下（`PROMPT_DIR` 默认是 `./prompts`）。参考模板位于 `prompts/samples/entity_type_prompt.sample.yml`。
 - 如果使用 OpenSearch 存储且集群版本低于 OpenSearch 3.3.0，请先升级 OpenSearch，再启用 v1.5 存储路径并校验已有索引。新部署建议使用 OpenSearch 3.3.0 或更高版本。
-- 更换 embedding 模型、向量维度、非对称 embedding 行为或 query/document 前缀会改变向量语义。请清空受影响的 LightRAG workspace/向量数据并重新索引源文件。
+- 更换 embedding 模型、向量维度、非对称 embedding 行为或 query/document 前缀会改变向量语义。请清空受影响的 madRAG workspace/向量数据并重新索引源文件。
 - 修改解析器路由（`LIGHTRAG_PARSER`）或文件名 hint 只影响新上传文件。若要把已有文档切换到另一个解析引擎，请先删除该文档再重新上传。
 - 修改 chunker 配置（`CHUNK_*`）会影响服务器重启后入队的文档。若希望旧文档的 `chunk_options` 快照也采用新配置，请重新处理这些文档。
 - 启用多模态选项（`i/t/e`）需要已有解析 sidecar，并设置 `VLM_PROCESS_ENABLE=true`。已有文档可通过重新处理在可用 sidecar 上补跑 VLM 分析；但切换解析引擎仍需要删除并重新上传。
@@ -32,23 +32,23 @@ LIGHTRAG_PARSER=*:legacy-F
 * 从 PyPI 安装
 
 ```bash
-### 使用 uv 安装 LightRAG 服务器（作为工具，推荐)
-uv tool install "lightrag-hku[api]"
+### 使用 uv 安装 madRAG 服务器（作为工具，推荐)
+uv tool install "madrag-hku[api]"
 
 ### 或使用 pip
 # python -m venv .venv
 # source .venv/bin/activate  # Windows: .venv\Scripts\activate
-# pip install "lightrag-hku[api]"
+# pip install "madrag-hku[api]"
 ```
 
 * 从源代码安装
 
 ```bash
 # 克隆仓库
-git clone https://github.com/HKUDS/lightrag.git
+git clone https://github.com/HKUDS/madrag.git
 
 # 进入仓库目录
-cd lightrag
+cd madrag
 
 # 一键初始化开发环境（推荐）
 make dev
@@ -71,17 +71,17 @@ source .venv/bin/activate  # 激活虚拟环境 (Linux/macOS)
 # pip install -e ".[test,offline]"
 
 # 构建前端代码
-cd lightrag_webui
+cd madrag_webui
 bun install --frozen-lockfile
 bun run build
 cd ..
 ```
 
-### 启动 LightRAG 服务器前的准备
+### 启动 madRAG 服务器前的准备
 
-LightRAG 需要同时集成 LLM（大型语言模型）和嵌入模型以有效执行文档索引和查询操作。在首次部署 LightRAG 服务器之前，必须配置 LLM 和嵌入模型的设置。
+madRAG 需要同时集成 LLM（大型语言模型）和嵌入模型以有效执行文档索引和查询操作。在首次部署 madRAG 服务器之前，必须配置 LLM 和嵌入模型的设置。
 
-LightRAG 支持以下 LLM 后端：
+madRAG 支持以下 LLM 后端：
 
 * lollms
 * openai 或 openai 兼容
@@ -89,7 +89,7 @@ LightRAG 支持以下 LLM 后端：
 * bedrock
 * gemini
 
-LightRAG 支持以下 embedding 后端：
+madRAG 支持以下 embedding 后端：
 
 * lollms
 * openai 或 openai 兼容
@@ -99,7 +99,7 @@ LightRAG 支持以下 embedding 后端：
 * gemini
 * voyageai
 
-建议使用环境变量来配置 LightRAG 服务器。项目根目录中有一个名为 `env.example` 的示例环境变量文件。请将此文件复制到启动目录并重命名为 `.env`。之后，您可以在 `.env` 文件中修改与 LLM 和嵌入模型相关的参数。需要注意的是，LightRAG 服务器每次启动时都会将 `.env` 中的环境变量加载到系统环境变量中。**LightRAG 服务器会优先使用系统环境变量中的设置**。
+建议使用环境变量来配置 madRAG 服务器。项目根目录中有一个名为 `env.example` 的示例环境变量文件。请将此文件复制到启动目录并重命名为 `.env`。之后，您可以在 `.env` 文件中修改与 LLM 和嵌入模型相关的参数。需要注意的是，madRAG 服务器每次启动时都会将 `.env` 中的环境变量加载到系统环境变量中。**madRAG 服务器会优先使用系统环境变量中的设置**。
 
 > 由于安装了 Python 扩展的 VS Code 可能会在集成终端中自动加载 .env 文件，请在每次修改 .env 文件后打开新的终端会话。
 
@@ -109,11 +109,11 @@ LightRAG 支持以下 embedding 后端：
 
 > 如果改为使用 Google Gemini, 设置 `LLM_BINDING=gemini`, 选择模型 `LLM_MODEL=gemini-flash-latest`, 并设置访问密钥 `LLM_BINDING_API_KEY` (或 `GEMINI_API_KEY`).
 
-> **重要提示**：在文档索引前必须确定使用的 Embedding 模型和非对称嵌入配置，且在查询阶段必须沿用相同设置。有些存储（例如 PostgreSQL）在首次建立表时需要确定向量维度。更换 Embedding 模型、向量维度、`EMBEDDING_ASYMMETRIC`、query/document 前缀或 provider task 行为后，必须清空现有 LightRAG workspace/向量数据并重新索引源文件。
+> **重要提示**：在文档索引前必须确定使用的 Embedding 模型和非对称嵌入配置，且在查询阶段必须沿用相同设置。有些存储（例如 PostgreSQL）在首次建立表时需要确定向量维度。更换 Embedding 模型、向量维度、`EMBEDDING_ASYMMETRIC`、query/document 前缀或 provider task 行为后，必须清空现有 madRAG workspace/向量数据并重新索引源文件。
 
 #### 非对称嵌入配置
 
-LightRAG 默认使用对称嵌入。只有显式设置 `EMBEDDING_ASYMMETRIC=true` 时，才会开启 query/document 非对称嵌入。
+madRAG 默认使用对称嵌入。只有显式设置 `EMBEDDING_ASYMMETRIC=true` 时，才会开启 query/document 非对称嵌入。
 
 - `jina`、`gemini`、`voyageai` 等 provider task 型绑定通过 provider 参数（`task` / `task_type` / `input_type`）区分 query/document，不应配置 query/document 前缀。
 - `openai`、`azure_openai` 等前缀型绑定必须同时配置 `EMBEDDING_QUERY_PREFIX` 和 `EMBEDDING_DOCUMENT_PREFIX`。如果某一侧明确不需要前缀，请使用 `NO_PREFIX`。
@@ -136,21 +136,21 @@ make env-security-check # 可选：审计当前 .env 中的安全风险
 这些 setup 向导只负责更新配置；如需在部署前审计当前 `.env` 的安全风险，请额外运行
 `make env-security-check`。
 
-### 启动 LightRAG 服务器
+### 启动 madRAG 服务器
 
-LightRAG 服务器支持两种运行模式：
+madRAG 服务器支持两种运行模式：
 * 简单高效的 Uvicorn 模式
 
 ```
-lightrag-server
+madrag-server
 ```
 * 多进程 Gunicorn + Uvicorn 模式（生产模式，不支持 Windows 环境）
 
 ```
-lightrag-gunicorn --workers 4
+madrag-gunicorn --workers 4
 ```
 
-启动LightRAG的时候，当前工作目录必须含有`.env`配置文件。**要求将.env文件置于启动目录中是经过特意设计的**。 这样做的目的是支持用户同时启动多个LightRAG实例，并为不同实例配置不同的.env文件。**修改.env文件后，您需要重新打开终端以使新设置生效**。 这是因为每次启动时，LightRAG Server会将.env文件中的环境变量加载至系统环境变量，且系统环境变量的设置具有更高优先级。
+启动madRAG的时候，当前工作目录必须含有`.env`配置文件。**要求将.env文件置于启动目录中是经过特意设计的**。 这样做的目的是支持用户同时启动多个madRAG实例，并为不同实例配置不同的.env文件。**修改.env文件后，您需要重新打开终端以使新设置生效**。 这是因为每次启动时，madRAG Server会将.env文件中的环境变量加载至系统环境变量，且系统环境变量的设置具有更高优先级。
 
 启动时可以通过命令行参数覆盖`.env`文件中的配置。常用的命令行参数包括：
 
@@ -160,40 +160,40 @@ lightrag-gunicorn --workers 4
 - `--log-level`：日志级别（默认：INFO）
 - `--working-dir`：数据库持久化目录（默认：./rag_storage）
 - `--input-dir`：上传文件存放目录（默认：./inputs）
-- `--workspace`: 工作空间名称，用于逻辑上隔离多个LightRAG实例之间的数据（默认：空）
+- `--workspace`: 工作空间名称，用于逻辑上隔离多个madRAG实例之间的数据（默认：空）
 - `--api-prefix`：对浏览器暴露的反向代理路径前缀，也可通过 `LIGHTRAG_API_PREFIX` 配置
 - `--rerank-binding`：Rerank provider（`null`、`cohere`、`jina` 或 `aliyun`）
 
 ### 路径前缀和多站点 WebUI
 
-当一台主机通过反向代理承载多个 LightRAG 实例，并由代理剥离站点前缀后再转发给后端时，请设置 `LIGHTRAG_API_PREFIX` 或 `--api-prefix`：
+当一台主机通过反向代理承载多个 madRAG 实例，并由代理剥离站点前缀后再转发给后端时，请设置 `LIGHTRAG_API_PREFIX` 或 `--api-prefix`：
 
 ```bash
 LIGHTRAG_API_PREFIX=/site01
-lightrag-server --port 9621
+madrag-server --port 9621
 ```
 
 后端会把该值作为 FastAPI 的 `root_path`，并把同一个运行时前缀注入 WebUI。WebUI 在服务端内部始终挂载到 `/webui`，因此同一份前端构建产物可以服务任意前缀。完整的 Nginx、Docker 和 Kubernetes 示例请参阅 [Single-Server Multi-Site Deployment](./MultiSiteDeployment.md)。
 
-### 使用 Docker 启动 LightRAG 服务器
+### 使用 Docker 启动 madRAG 服务器
 
-使用 Docker Compose 是部署和运行 LightRAG Server 最便捷的方式。
+使用 Docker Compose 是部署和运行 madRAG Server 最便捷的方式。
 
 - 创建一个项目目录。
-- 将 LightRAG 仓库中的 `docker-compose.yml` 文件复制到您的项目目录中。
+- 将 madRAG 仓库中的 `docker-compose.yml` 文件复制到您的项目目录中。
 - 准备 `.env` 文件：复制示例文件 [`env.example`](https://ai.znipower.com:5013/c/env.example) 创建自定义的 `.env` 文件，并根据您的具体需求配置 LLM 和嵌入参数。
-- 通过以下命令启动 LightRAG 服务器：
+- 通过以下命令启动 madRAG 服务器：
 
 ```shell
 docker compose up
 # 如果希望启动后让程序退到后台运行，需要在命令的最后添加 -d 参数
 ```
 
-> 可以通过以下链接获取官方的docker compose文件：[docker-compose.yml]( https://raw.githubusercontent.com/HKUDS/LightRAG/refs/heads/main/docker-compose.yml) 。如需获取LightRAG的历史版本镜像，可以访问以下链接: [LightRAG Docker Images]( https://github.com/HKUDS/LightRAG/pkgs/container/lightrag). 如需获取更多关于docker部署的信息，请参阅 [DockerDeployment.md](./DockerDeployment.md).
+> 可以通过以下链接获取官方的docker compose文件：[docker-compose.yml]( https://raw.githubusercontent.com/HKUDS/madRAG/refs/heads/main/docker-compose.yml) 。如需获取madRAG的历史版本镜像，可以访问以下链接: [madRAG Docker Images]( https://github.com/HKUDS/madRAG/pkgs/container/madrag). 如需获取更多关于docker部署的信息，请参阅 [DockerDeployment.md](./DockerDeployment.md).
 
 ### 渐进式配置示例
 
-如果您是 LightRAG 新用户，建议从最小可运行配置开始，确认上一阶段正常后再逐步开启更多能力：
+如果您是 madRAG 新用户，建议从最小可运行配置开始，确认上一阶段正常后再逐步开启更多能力：
 
 1. 使用托管 LLM 和 Embedding 模型完成最小 Docker 启动
 2. 增加 Reranking 以提升查询质量
@@ -211,7 +211,7 @@ docker compose up
 ### Server Configuration
 ###########################
 PORT=9621
-WEBUI_TITLE='My First LightRAG KB'
+WEBUI_TITLE='My First madRAG KB'
 WEBUI_DESCRIPTION='Simple and Fast Graph Based RAG System'
 
 ########################################
@@ -285,11 +285,11 @@ RERANK_BINDING_HOST=http://localhost:8000/rerank
 RERANK_BINDING_API_KEY=your_rerank_api_key_here
 ```
 
-如果 LightRAG 自身运行在 Docker 容器中，而 reranker 运行在宿主机，请使用 `host.docker.internal` 等容器可访问地址，不要直接使用 `localhost`。如果 reranker 由 setup 向导生成，向导会自动把 Compose 内部服务地址注入到 `docker-compose.final.yml`。
+如果 madRAG 自身运行在 Docker 容器中，而 reranker 运行在宿主机，请使用 `host.docker.internal` 等容器可访问地址，不要直接使用 `localhost`。如果 reranker 由 setup 向导生成，向导会自动把 Compose 内部服务地址注入到 `docker-compose.final.yml`。
 
 #### 3. 使用 MinerU 官方 API 开启多模态解析
 
-建议在基础文档流程已经正常后再开启该能力。使用 MinerU 官方 API 可以避免本地部署解析服务，但必须在 LightRAG 服务器启动前配置 `MINERU_API_TOKEN`。VLM 角色也必须使用支持图片输入的 provider/model。
+建议在基础文档流程已经正常后再开启该能力。使用 MinerU 官方 API 可以避免本地部署解析服务，但必须在 madRAG 服务器启动前配置 `MINERU_API_TOKEN`。VLM 角色也必须使用支持图片输入的 provider/model。
 
 ```bash
 LIGHTRAG_PARSER=*:native-iteP,*:mineru-iteP,*:legacy-R
@@ -357,7 +357,7 @@ docker compose -f docker-compose.final.yml up -d
 
 ### Nginx 反向代理配置
 
-在 LightRAG 服务器前使用 Nginx 作为反向代理时，需要为 `/documents/upload` 端点配置 `client_max_body_size` 以处理大文件上传。如果不进行此配置，Nginx 将拒绝大于 1MB（默认限制）的文件，并在请求到达 LightRAG 之前返回 `413 Request Entity Too Large` 错误。
+在 madRAG 服务器前使用 Nginx 作为反向代理时，需要为 `/documents/upload` 端点配置 `client_max_body_size` 以处理大文件上传。如果不进行此配置，Nginx 将拒绝大于 1MB（默认限制）的文件，并在请求到达 madRAG 之前返回 `413 Request Entity Too Large` 错误。
 
 **推荐配置：**
 
@@ -413,38 +413,38 @@ server {
 
 1. **全局限制（8MB）**：足以处理具有长对话历史和上下文的 LLM 查询（128K tokens ≈ 512KB + JSON 开销）。
 2. **上传端点（100MB）**：必须匹配或超过 `.env` 文件中的 `MAX_UPLOAD_SIZE`。默认 `MAX_UPLOAD_SIZE` 为 100MB。
-3. **流式端点**：为流式端点禁用 gzip 压缩（`gzip off`）以确保实时响应传输。LightRAG 自动设置 `X-Accel-Buffering: no` 头以禁用响应缓冲。
+3. **流式端点**：为流式端点禁用 gzip 压缩（`gzip off`）以确保实时响应传输。madRAG 自动设置 `X-Accel-Buffering: no` 头以禁用响应缓冲。
 4. **超时设置**：大文件上传和 LLM 生成需要更长的超时时间；相应调整 `proxy_read_timeout` 和 `proxy_send_timeout`。
 5. **大小验证层**：
    - Nginx 首先验证 `Content-Length` 头
-   - LightRAG 在上传过程中执行流式验证
+   - madRAG 在上传过程中执行流式验证
    - 在两层设置适当的限制可确保更好的错误消息和安全性
 
 ### 离线部署
 
-官方的 LightRAG Docker 镜像完全兼容离线或隔离网络环境。如需搭建自己的离线部署环境，请参考 [离线部署指南](./OfflineDeployment.md)。
+官方的 madRAG Docker 镜像完全兼容离线或隔离网络环境。如需搭建自己的离线部署环境，请参考 [离线部署指南](./OfflineDeployment.md)。
 
-### 启动多个 LightRAG 实例
+### 启动多个 madRAG 实例
 
-有两种方式可以启动多个LightRAG实例。第一种方式是为每个实例配置一个完全独立的工作环境。此时需要为每个实例创建一个独立的工作目录，然后在这个工作目录上放置一个当前实例专用的`.env`配置文件。不同实例的配置文件中的服务器监听端口不能重复，然后在工作目录上执行 lightrag-server 启动服务即可。
+有两种方式可以启动多个madRAG实例。第一种方式是为每个实例配置一个完全独立的工作环境。此时需要为每个实例创建一个独立的工作目录，然后在这个工作目录上放置一个当前实例专用的`.env`配置文件。不同实例的配置文件中的服务器监听端口不能重复，然后在工作目录上执行 madrag-server 启动服务即可。
 
-第二种方式是所有实例共享一套相同的`.env`配置文件，然后通过命令行参数来为每个实例指定不同的服务器监听端口和工作空间。你可以在同一个工作目录中通过不同的命令行参数启动多个LightRAG实例。例如：
+第二种方式是所有实例共享一套相同的`.env`配置文件，然后通过命令行参数来为每个实例指定不同的服务器监听端口和工作空间。你可以在同一个工作目录中通过不同的命令行参数启动多个madRAG实例。例如：
 
 ```
 # 启动实例1
-lightrag-server --port 9621 --workspace space1
+madrag-server --port 9621 --workspace space1
 
 # 启动实例2
-lightrag-server --port 9622 --workspace space2
+madrag-server --port 9622 --workspace space2
 ```
 
 工作空间的作用是实现不同实例之间的数据隔离。因此不同实例之间的`workspace`参数必须不同，否则会导致数据混乱，数据将会被破坏。
 
-通过 Docker Compose 启动多个 LightRAG 实例时，只需在 `docker-compose.yml` 中为每个容器指定不同的 `WORKSPACE` 和 `PORT` 环境变量即可。即使所有实例共享同一个 `.env` 文件，Compose 中定义的容器环境变量也会优先覆盖 `.env` 文件中的同名设置，从而确保每个实例拥有独立的配置。
+通过 Docker Compose 启动多个 madRAG 实例时，只需在 `docker-compose.yml` 中为每个容器指定不同的 `WORKSPACE` 和 `PORT` 环境变量即可。即使所有实例共享同一个 `.env` 文件，Compose 中定义的容器环境变量也会优先覆盖 `.env` 文件中的同名设置，从而确保每个实例拥有独立的配置。
 
-### LightRAG 实例间的数据隔离
+### madRAG 实例间的数据隔离
 
-每个实例配置一个独立的工作目录和专用`.env`配置文件通常能够保证内存数据库中的本地持久化文件保存在各自的工作目录，实现数据的相互隔离。LightRAG默认存储全部都是内存数据库，通过这种方式进行数据隔离是没有问题的。但是如果使用的是外部数据库，如果不同实例访问的是同一个数据库实例，就需要通过配置工作空间来实现数据隔离，否则不同实例的数据将会出现冲突并被破坏。
+每个实例配置一个独立的工作目录和专用`.env`配置文件通常能够保证内存数据库中的本地持久化文件保存在各自的工作目录，实现数据的相互隔离。madRAG默认存储全部都是内存数据库，通过这种方式进行数据隔离是没有问题的。但是如果使用的是外部数据库，如果不同实例访问的是同一个数据库实例，就需要通过配置工作空间来实现数据隔离，否则不同实例的数据将会出现冲突并被破坏。
 
 命令行的 workspace 参数和`.env`文件中的环境变量`WORKSPACE` 都可以用于指定当前实例的工作空间名字，命令行参数的优先级别更高。下面是不同类型的存储实现工作空间的方式：
 
@@ -459,9 +459,9 @@ lightrag-server --port 9622 --workspace space2
 
 ### Gunicorn + Uvicorn 的多工作进程
 
-LightRAG 服务器可以在 `Gunicorn + Uvicorn` 预加载模式下运行。Gunicorn 的多工作进程（多进程）功能可以防止文档索引任务阻塞 RAG 查询。CPU 密集型文档提取工具应作为外置服务部署，避免阻塞 API 进程。
+madRAG 服务器可以在 `Gunicorn + Uvicorn` 预加载模式下运行。Gunicorn 的多工作进程（多进程）功能可以防止文档索引任务阻塞 RAG 查询。CPU 密集型文档提取工具应作为外置服务部署，避免阻塞 API 进程。
 
-虽然 LightRAG 服务器使用一个工作进程来处理文档索引流程，但通过 Uvicorn 的异步任务支持，可以并行处理多个文件。文档索引速度的瓶颈主要在于 LLM。如果您的 LLM 支持高并发，您可以通过增加 LLM 的并发级别来加速文档索引。以下是几个与并发处理相关的环境变量及其默认值：
+虽然 madRAG 服务器使用一个工作进程来处理文档索引流程，但通过 Uvicorn 的异步任务支持，可以并行处理多个文件。文档索引速度的瓶颈主要在于 LLM。如果您的 LLM 支持高并发，您可以通过增加 LLM 的并发级别来加速文档索引。以下是几个与并发处理相关的环境变量及其默认值：
 
 ```
 ### 工作进程数，数字不大于 (2 x 核心数) + 1
@@ -476,36 +476,36 @@ MAX_ASYNC=4
 
 ```shell
 export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
-lightrag-gunicorn --workers 2
+madrag-gunicorn --workers 2
 ```
 
-### 将 LightRAG 安装为 Linux 服务
+### 将 madRAG 安装为 Linux 服务
 
-从示例文件 `lightrag.service.example` 创建您的服务文件 `lightrag.service`。修改服务文件中的服务启动定义：
+从示例文件 `madrag.service.example` 创建您的服务文件 `madrag.service`。修改服务文件中的服务启动定义：
 
 ```text
 # Set Enviroment to your Python virtual enviroment
-Environment="PATH=/home/netman/lightrag-xyj/venv/bin"
-WorkingDirectory=/home/netman/lightrag-xyj
-# ExecStart=/home/netman/lightrag-xyj/venv/bin/lightrag-server
-ExecStart=/home/netman/lightrag-xyj/venv/bin/lightrag-gunicorn
+Environment="PATH=/home/netman/madrag-xyj/venv/bin"
+WorkingDirectory=/home/netman/madrag-xyj
+# ExecStart=/home/netman/madrag-xyj/venv/bin/madrag-server
+ExecStart=/home/netman/madrag-xyj/venv/bin/madrag-gunicorn
 ```
 
-> ExecStart命令必须是 lightrag-gunicorn 或 lightrag-server 中的一个，不能使用其它脚本包裹它们。因为停止服务必须要求主进程必须是这两个进程。
+> ExecStart命令必须是 madrag-gunicorn 或 madrag-server 中的一个，不能使用其它脚本包裹它们。因为停止服务必须要求主进程必须是这两个进程。
 
-安装 LightRAG 服务。如果您的系统是 Ubuntu，以下命令将生效：
+安装 madRAG 服务。如果您的系统是 Ubuntu，以下命令将生效：
 
 ```shell
-sudo cp lightrag.service /etc/systemd/system/
+sudo cp madrag.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl start lightrag.service
-sudo systemctl status lightrag.service
-sudo systemctl enable lightrag.service
+sudo systemctl start madrag.service
+sudo systemctl status madrag.service
+sudo systemctl enable madrag.service
 ```
 
 ## API 密钥和认证
 
-默认情况下，LightRAG 服务器可以在没有任何认证的情况下访问。我们可以使用 API 密钥或账户凭证配置服务器以确保其安全。
+默认情况下，madRAG 服务器可以在没有任何认证的情况下访问。我们可以使用 API 密钥或账户凭证配置服务器以确保其安全。
 
 * API 密钥
 
@@ -516,7 +516,7 @@ WHITELIST_PATHS=/health,/api/*
 
 > 健康检查端点默认不进行 API 密钥检查。
 
-API Key使用的请求头是 `X-API-Key` 。以下是使用API访问LightRAG Server的一个例子：
+API Key使用的请求头是 `X-API-Key` 。以下是使用API访问madRAG Server的一个例子：
 
 ```
 curl -X 'POST' \
@@ -528,7 +528,7 @@ curl -X 'POST' \
 
 * 账户凭证（Web 界面需要登录后才能访问）
 
-LightRAG API 服务器使用基于 HS256 算法的 JWT 认证。要启用安全访问控制，需要以下环境变量：
+madRAG API 服务器使用基于 HS256 算法的 JWT 认证。要启用安全访问控制，需要以下环境变量：
 
 ```bash
 # JWT 认证
@@ -540,7 +540,7 @@ TOKEN_EXPIRE_HOURS=4
 没有前缀的密码会被当作明文。要使用 bcrypt，请在生成出的哈希前加上 `{bcrypt}`。最方便的方式是直接运行：
 
 ```bash
-lightrag-hash-password --username admin
+madrag-hash-password --username admin
 ```
 
 该命令会安全提示输入密码，并输出可直接粘贴到 `.env` 的 `admin:{bcrypt}...` 条目。
@@ -555,9 +555,9 @@ lightrag-hash-password --username admin
 
 ```bash
 # 根据需要更改资源组名称、位置和 OpenAI 资源名称
-RESOURCE_GROUP_NAME=LightRAG
+RESOURCE_GROUP_NAME=madRAG
 LOCATION=swedencentral
-RESOURCE_NAME=LightRAG-OpenAI
+RESOURCE_NAME=madRAG-OpenAI
 
 az login
 az group create --name $RESOURCE_GROUP_NAME --location $LOCATION
@@ -584,7 +584,7 @@ EMBEDDING_BINDING=azure_openai
 EMBEDDING_MODEL=your-embedding-deployment-name
 ```
 
-## LightRAG 服务器详细配置
+## madRAG 服务器详细配置
 
 API 服务器可以通过两种方式配置（优先级从高到低）：
 
@@ -595,7 +595,7 @@ API 服务器可以通过两种方式配置（优先级从高到低）：
 
 ### 支持的 LLM 和嵌入后端
 
-LightRAG 支持绑定到各种 LLM 后端：
+madRAG 支持绑定到各种 LLM 后端：
 
 * openai (含openai 兼容)
 * azure_openai
@@ -603,7 +603,7 @@ LightRAG 支持绑定到各种 LLM 后端：
 * bedrock
 * gemini
 
-LightRAG 支持绑定到各种嵌入后端：
+madRAG 支持绑定到各种嵌入后端：
 
 * lollms
 * openai (含 openai 兼容)
@@ -631,9 +631,9 @@ AWS_REGION=us-west-2
 LLM和Embedding配置例子请查看项目根目录的 env.example 文件。支持的 LLM 接口的完整配置选项可以通过以下命令查看：
 
 ```
-lightrag-server --llm-binding openai --help
-lightrag-server --llm-binding gemini --help
-lightrag-server --embedding-binding gemini --help
+madrag-server --llm-binding openai --help
+madrag-server --llm-binding gemini --help
+madrag-server --embedding-binding gemini --help
 ```
 
 > 请使用openai兼容方式访问OpenRouter、vLLM或SLang部署的LLM。可以通过 `OPENAI_LLM_EXTRA_BODY` 环境变量给OpenRouter、vLLM或SGLang推理框架传递额外的参数，实现推理模式的关闭或者其它个性化控制。
@@ -713,7 +713,7 @@ SURROUNDING_TRAILING_MAX_TOKENS=2000
 ```bash
 ENTITY_EXTRACTION_USE_JSON=true
 ENTITY_TYPE_PROMPT_FILE=entity_type_prompt.yml
-PROMPT_DIR=/opt/lightrag/prompts
+PROMPT_DIR=/opt/madrag/prompts
 MAX_EXTRACT_INPUT_TOKENS=20480
 MAX_EXTRACTION_RECORDS=100
 MAX_EXTRACTION_ENTITIES=40
@@ -724,16 +724,16 @@ ENABLE_LLM_CACHE_FOR_EXTRACT=true
 
 ### 支持的存储类型
 
-LightRAG 使用 4 种类型的存储用于不同目的：
+madRAG 使用 4 种类型的存储用于不同目的：
 
 * KV_STORAGE：llm 响应缓存、文本块、文档信息
 * VECTOR_STORAGE：实体向量、关系向量、块向量
 * GRAPH_STORAGE：实体关系图
 * DOC_STATUS_STORAGE：文档索引状态
 
-每种存储类型都有多种存储实现方式。LightRAG Server 默认的存储实现为内存数据库，数据通过文件持久化保存到 WORKING_DIR 目录。LightRAG 还支持 PostgreSQL、MongoDB、FAISS、Milvus、Qdrant、Neo4j、Memgraph、Redis 和 OpenSearch 等存储实现方式。详细的存储支持方式请参考根目录下的 `README.md` 文件中关于存储的相关内容。
+每种存储类型都有多种存储实现方式。madRAG Server 默认的存储实现为内存数据库，数据通过文件持久化保存到 WORKING_DIR 目录。madRAG 还支持 PostgreSQL、MongoDB、FAISS、Milvus、Qdrant、Neo4j、Memgraph、Redis 和 OpenSearch 等存储实现方式。详细的存储支持方式请参考根目录下的 `README.md` 文件中关于存储的相关内容。
 
-**Milvus 索引配置:** LightRAG 现在可通过环境变量支持对 Milvus 向量存储的可配置索引类型（AUTOINDEX、HNSW、HNSW_SQ、IVF_FLAT 等）。HNSW_SQ 需要 Milvus 2.6.8 或更高版本，并能显著节省内存。有关完整的配置选项，请参阅主 README.md 文件中的“使用 Milvus 进行向量存储”部分。
+**Milvus 索引配置:** madRAG 现在可通过环境变量支持对 Milvus 向量存储的可配置索引类型（AUTOINDEX、HNSW、HNSW_SQ、IVF_FLAT 等）。HNSW_SQ 需要 Milvus 2.6.8 或更高版本，并能显著节省内存。有关完整的配置选项，请参阅主 README.md 文件中的“使用 Milvus 进行向量存储”部分。
 
 您可以通过环境变量选择存储实现。例如，在首次启动 API 服务器之前，您可以将以下环境变量设置为特定的存储实现名称：
 
@@ -744,13 +744,13 @@ LIGHTRAG_GRAPH_STORAGE=PGGraphStorage
 LIGHTRAG_DOC_STATUS_STORAGE=PGDocStatusStorage
 ```
 
-在向 LightRAG 添加文档后，您不能更改存储实现选择。目前尚不支持从一个存储实现迁移到另一个存储实现。更多配置信息请阅读示例 `.env.example` 文件。
+在向 madRAG 添加文档后，您不能更改存储实现选择。目前尚不支持从一个存储实现迁移到另一个存储实现。更多配置信息请阅读示例 `.env.example` 文件。
 
 ### 在不同存储类型之间迁移LLM缓存
 
-当LightRAG更换存储实现方式的时候，可以LLM缓存从就的存储迁移到新的存储。先以后在新的存储上重新上传文件时，将利用利用原有存储的LLM缓存大幅度加快文件处理的速度。LLM缓存迁移工具的使用方法请参考 [README_MIGRATE_LLM_CACHE.md](../lightrag/tools/README_MIGRATE_LLM_CACHE.md)
+当madRAG更换存储实现方式的时候，可以LLM缓存从就的存储迁移到新的存储。先以后在新的存储上重新上传文件时，将利用利用原有存储的LLM缓存大幅度加快文件处理的速度。LLM缓存迁移工具的使用方法请参考 [README_MIGRATE_LLM_CACHE.md](../madrag/tools/README_MIGRATE_LLM_CACHE.md)
 
-### LightRAG API 服务器命令行选项
+### madRAG API 服务器命令行选项
 
 | 参数 | 默认值 | 描述 |
 | --- | --- | --- |
@@ -775,7 +775,7 @@ LIGHTRAG_DOC_STATUS_STORAGE=PGDocStatusStorage
 
 ### Reranking 配置
 
-Reranking 查询召回的块可以显著提高检索质量，它通过基于优化的相关性评分模型对文档重新排序。LightRAG 目前支持以下 rerank 提供商：
+Reranking 查询召回的块可以显著提高检索质量，它通过基于优化的相关性评分模型对文档重新排序。madRAG 目前支持以下 rerank 提供商：
 
 - **Cohere / vLLM**：提供与 Cohere AI 的 `v2/rerank` 端点的完整 API 集成。由于 vLLM 提供了与 Cohere 兼容的 reranker API，因此也支持所有通过 vLLM 部署的 reranker 模型。
 - **Jina AI**：提供与所有 Jina rerank 模型的完全实现兼容性。
@@ -835,7 +835,7 @@ RERANK_BY_DEFAULT=False
 
 ```json
 {
-  "query": "What is LightRAG?",
+  "query": "What is madRAG?",
   "mode": "mix",
   "include_references": true,
   "include_chunk_content": true
@@ -846,13 +846,13 @@ RERANK_BY_DEFAULT=False
 
 ```json
 {
-  "response": "LightRAG is a graph-based RAG system...",
+  "response": "madRAG is a graph-based RAG system...",
   "references": [
     {
       "reference_id": "1",
       "file_path": "/documents/intro.md",
       "content": [
-        "LightRAG is a retrieval-augmented generation system that combines knowledge graphs with vector similarity search...",
+        "madRAG is a retrieval-augmented generation system that combines knowledge graphs with vector similarity search...",
         "The system uses a dual-indexing approach with both vector embeddings and graph structures for enhanced retrieval..."
       ]
     },
@@ -932,7 +932,7 @@ EMBEDDING_BINDING_API_KEY=your-api-key
 
 ### For JWT Auth
 # AUTH_ACCOUNTS='admin:{bcrypt}$2b$12$replace-with-generated-hash,user1:pass456'
-# TOKEN_SECRET=your-key-for-LightRAG-API-Server-xxx
+# TOKEN_SECRET=your-key-for-madRAG-API-Server-xxx
 # TOKEN_EXPIRE_HOURS=48
 
 # LIGHTRAG_API_KEY=your-secure-api-key-here-123
@@ -988,7 +988,7 @@ LIGHTRAG_PARSER=pdf:mineru-R,docx:native-ietP,*:legacy-R
 | 引擎 | 用途 |
 | --- | --- |
 | `legacy` | 原有抽取行为，适合兼容旧部署和简单文本类文件。 |
-| `native` | 内置结构化解析器，目前重点支持 `.docx` 和 LightRAG Document sidecar。 |
+| `native` | 内置结构化解析器，目前重点支持 `.docx` 和 madRAG Document sidecar。 |
 | `mineru` | 外部 MinerU 解析器，适用于 PDF、Office 文件和图片。需要配置 `MINERU_API_MODE` 以及 `MINERU_LOCAL_ENDPOINT` 或 `MINERU_API_TOKEN`。 |
 | `docling` | 外部 docling-serve 解析器，适用于 PDF、Office 文件、Markdown/HTML 和图片。需要配置 `DOCLING_ENDPOINT`。 |
 
@@ -1015,7 +1015,7 @@ notes.[-R].md
 | `F` | 固定 token 分块，即 legacy 分块方式 |
 | `R` | 递归字符分块，支持可配置分隔符级联 |
 | `V` | 语义向量分块；超长 chunk 会再用 `R` 切分 |
-| `P` | 面向结构化 LightRAG Document 内容的段落语义分块；缺少结构化内容时自动回退到 `R` |
+| `P` | 面向结构化 madRAG Document 内容的段落语义分块；缺少结构化内容时自动回退到 `R` |
 
 每个文件最多选择 `F`、`R`、`V`、`P` 中的一种。分块参数通过 `CHUNK_SIZE`、`CHUNK_OVERLAP_SIZE` 以及策略专属变量配置，例如 `CHUNK_R_SEPARATORS`、`CHUNK_V_BREAKPOINT_THRESHOLD_TYPE`、`CHUNK_P_SIZE`、`CHUNK_P_OVERLAP_SIZE`。这些值在服务器启动时读取，并在文档入队时作为该文档的 `chunk_options` 快照保存。
 
@@ -1029,7 +1029,7 @@ notes.[-R].md
 
 ## API 端点
 
-所有支持的后端（`lollms`、`openai` / OpenAI-compatible、`azure_openai`、`bedrock` 和 `gemini`）都暴露相同的 LightRAG REST API。当 API 服务器运行时，访问：
+所有支持的后端（`lollms`、`openai` / OpenAI-compatible、`azure_openai`、`bedrock` 和 `gemini`）都暴露相同的 madRAG REST API。当 API 服务器运行时，访问：
 
 - Swagger UI：http://localhost:9621/docs
 - ReDoc：http://localhost:9621/redoc
@@ -1046,7 +1046,7 @@ notes.[-R].md
 
 ## 异步文档索引与进度跟踪
 
-LightRAG采用异步文档索引机制，便于前端监控和查询文档处理进度。用户通过指定端点上传文件或插入文本时，系统将返回唯一的跟踪ID，以便实时监控处理进度。
+madRAG采用异步文档索引机制，便于前端监控和查询文档处理进度。用户通过指定端点上传文件或插入文本时，系统将返回唯一的跟踪ID，以便实时监控处理进度。
 
 **支持生成跟踪ID的API端点：**
 

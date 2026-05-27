@@ -1,8 +1,8 @@
 """Tests for IntentClassifier — rule-based phase only (no LLM)."""
 
 import pytest
-from lightrag.guardrails.intent_classifier import IntentClassifier, _rule_based_intent
-from lightrag.guardrails.base import GuardrailViolationError
+from madrag.guardrails.intent_classifier import IntentClassifier, _rule_based_intent
+from madrag.guardrails.base import GuardrailViolationError
 
 
 # ---------------------------------------------------------------------------

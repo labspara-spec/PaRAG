@@ -59,7 +59,7 @@ data/
 prompts/entity_type/
 
 # Evaluation results
-lightrag/evaluation/results/
+madrag/evaluation/results/
 
 # Miscellaneous
 .DS_Store
@@ -73,7 +73,7 @@ ignore_this.txt
 /ag2_demo_workdir/
 
 # Frontend build output (built during PyPI release)
-/lightrag/api/webui/
+/madrag/api/webui/
 
 # temporary test files in project root
 /test_*

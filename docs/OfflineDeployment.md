@@ -1,10 +1,10 @@
-# LightRAG Offline Deployment Guide
+# madRAG Offline Deployment Guide
 
-This guide provides comprehensive instructions for deploying LightRAG in offline environments where internet access is limited or unavailable.
+This guide provides comprehensive instructions for deploying madRAG in offline environments where internet access is limited or unavailable.
 
-If you deploy LightRAG using Docker, there is no need to refer to this document, as the LightRAG Docker image is pre-configured for offline operation.
+If you deploy madRAG using Docker, there is no need to refer to this document, as the madRAG Docker image is pre-configured for offline operation.
 
-> Software packages requiring `transformers`, `torch`, or `cuda` will not be included in the offline dependency group. Consequently, document extraction tools such as Docling, as well as local LLM models like Hugging Face and LMDeploy, are outside the scope of offline installation support. These high-compute-resource-demanding services should not be integrated into LightRAG. Docling will be decoupled and deployed as a standalone service.
+> Software packages requiring `transformers`, `torch`, or `cuda` will not be included in the offline dependency group. Consequently, document extraction tools such as Docling, as well as local LLM models like Hugging Face and LMDeploy, are outside the scope of offline installation support. These high-compute-resource-demanding services should not be integrated into madRAG. Docling will be decoupled and deployed as a standalone service.
 
 ## Table of Contents
 
@@ -17,11 +17,11 @@ If you deploy LightRAG using Docker, there is no need to refer to this document,
 
 ## Overview
 
-LightRAG uses dynamic package installation (`pipmaster`) for optional features based on file types and configurations. In offline environments, these dynamic installations will fail. This guide shows you how to pre-install all necessary dependencies and cache files.
+madRAG uses dynamic package installation (`pipmaster`) for optional features based on file types and configurations. In offline environments, these dynamic installations will fail. This guide shows you how to pre-install all necessary dependencies and cache files.
 
 ### What Gets Dynamically Installed?
 
-LightRAG dynamically installs packages for:
+madRAG dynamically installs packages for:
 
 - **Storage Backends**: `redis`, `neo4j`, `pymilvus`, `pymongo`, `asyncpg`, `qdrant-client`
 - **LLM Providers**: `openai`, `anthropic`, `zhipuai`, `aioboto3`, `voyageai`, `llama-index`, `lmdeploy`, `transformers`, `torch`
@@ -35,21 +35,21 @@ LightRAG dynamically installs packages for:
 
 ```bash
 # Online environment: Install all offline dependencies
-pip install lightrag-hku[offline]
+pip install madrag-hku[offline]
 
 # Download tiktoken cache
-lightrag-download-cache
+madrag-download-cache
 
 # Create offline package
-pip download lightrag-hku[offline] -d ./offline-packages
-tar -czf lightrag-offline.tar.gz ./offline-packages ~/.tiktoken_cache
+pip download madrag-hku[offline] -d ./offline-packages
+tar -czf madrag-offline.tar.gz ./offline-packages ~/.tiktoken_cache
 
 # Transfer to offline server
-scp lightrag-offline.tar.gz user@offline-server:/path/to/
+scp madrag-offline.tar.gz user@offline-server:/path/to/
 
 # Offline environment: Install
-tar -xzf lightrag-offline.tar.gz
-pip install --no-index --find-links=./offline-packages lightrag-hku[offline]
+tar -xzf madrag-offline.tar.gz
+pip install --no-index --find-links=./offline-packages madrag-hku[offline]
 export TIKTOKEN_CACHE_DIR=~/.tiktoken_cache
 ```
 
@@ -70,7 +70,7 @@ pip install --no-index --find-links=./packages -r requirements-offline.txt
 
 ## Layered Dependencies
 
-LightRAG provides flexible dependency groups for different use cases:
+madRAG provides flexible dependency groups for different use cases:
 
 ### Available Dependency Groups
 
@@ -89,13 +89,13 @@ LightRAG provides flexible dependency groups for different use cases:
 
 ```bash
 # Install API with document processing
-pip install lightrag-hku[api]
+pip install madrag-hku[api]
 
 # Install API and storage backends
-pip install lightrag-hku[api,offline-storage]
+pip install madrag-hku[api,offline-storage]
 
 # Install all offline dependencies (recommended for offline deployment)
-pip install lightrag-hku[offline]
+pip install madrag-hku[offline]
 ```
 
 ### Using Individual Requirements Files
@@ -117,22 +117,22 @@ Tiktoken downloads BPE encoding models on first use. In offline environments, yo
 
 ### Using the CLI Command
 
-After installing LightRAG, use the built-in command:
+After installing madRAG, use the built-in command:
 
 ```bash
 # Download to default location (see output for exact path)
-lightrag-download-cache
+madrag-download-cache
 
 # Download to specific directory
-lightrag-download-cache --cache-dir ./tiktoken_cache
+madrag-download-cache --cache-dir ./tiktoken_cache
 
 # Download specific models only
-lightrag-download-cache --models gpt-4o-mini gpt-4
+madrag-download-cache --models gpt-4o-mini gpt-4
 ```
 
 ### Default Models Downloaded
 
-- `gpt-4o-mini` (LightRAG default)
+- `gpt-4o-mini` (madRAG default)
 - `gpt-4o`
 - `gpt-4`
 - `gpt-3.5-turbo`
@@ -159,30 +159,30 @@ cp -r /path/to/tiktoken_cache ~/.tiktoken_cache/
 ### Step 1: Prepare in Online Environment
 
 ```bash
-# 1. Install LightRAG with offline dependencies
-pip install lightrag-hku[offline]
+# 1. Install madRAG with offline dependencies
+pip install madrag-hku[offline]
 
 # 2. Download tiktoken cache
-lightrag-download-cache --cache-dir ./offline_cache/tiktoken
+madrag-download-cache --cache-dir ./offline_cache/tiktoken
 
 # 3. Download all Python packages
-pip download lightrag-hku[offline] -d ./offline_cache/packages
+pip download madrag-hku[offline] -d ./offline_cache/packages
 
 # 4. Create archive for transfer
-tar -czf lightrag-offline-complete.tar.gz ./offline_cache
+tar -czf madrag-offline-complete.tar.gz ./offline_cache
 
 # 5. Verify contents
-tar -tzf lightrag-offline-complete.tar.gz | head -20
+tar -tzf madrag-offline-complete.tar.gz | head -20
 ```
 
 ### Step 2: Transfer to Offline Environment
 
 ```bash
 # Using scp
-scp lightrag-offline-complete.tar.gz user@offline-server:/tmp/
+scp madrag-offline-complete.tar.gz user@offline-server:/tmp/
 
 # Or using USB/physical media
-# Copy lightrag-offline-complete.tar.gz to USB drive
+# Copy madrag-offline-complete.tar.gz to USB drive
 ```
 
 ### Step 3: Install in Offline Environment
@@ -190,12 +190,12 @@ scp lightrag-offline-complete.tar.gz user@offline-server:/tmp/
 ```bash
 # 1. Extract archive
 cd /tmp
-tar -xzf lightrag-offline-complete.tar.gz
+tar -xzf madrag-offline-complete.tar.gz
 
 # 2. Install Python packages
 pip install --no-index \
     --find-links=/tmp/offline_cache/packages \
-    lightrag-hku[offline]
+    madrag-hku[offline]
 
 # 3. Set up tiktoken cache
 mkdir -p ~/.tiktoken_cache
@@ -210,10 +210,10 @@ echo 'export TIKTOKEN_CACHE_DIR=~/.tiktoken_cache' >> ~/.bashrc
 
 ```bash
 # Test Python import
-python -c "from lightrag import LightRAG; print('✓ LightRAG imported')"
+python -c "from madrag import madRAG; print('✓ madRAG imported')"
 
 # Test tiktoken
-python -c "from lightrag.utils import TiktokenTokenizer; t = TiktokenTokenizer(); print('✓ Tiktoken working')"
+python -c "from madrag.utils import TiktokenTokenizer; t = TiktokenTokenizer(); print('✓ Tiktoken working')"
 
 # Test optional dependencies (if installed)
 python -c "import redis; print('✓ Redis available')"
@@ -244,13 +244,13 @@ ls -la ~/.tiktoken_cache/
 ```bash
 # Pre-install the specific package you need
 # For API with document processing:
-pip install lightrag-hku[api]
+pip install madrag-hku[api]
 
 # For storage backends:
-pip install lightrag-hku[offline-storage]
+pip install madrag-hku[offline-storage]
 
 # For LLM providers:
-pip install lightrag-hku[offline-llm]
+pip install madrag-hku[offline-llm]
 ```
 
 ### Issue: Missing dependencies at runtime
@@ -263,7 +263,7 @@ pip install lightrag-hku[offline-llm]
 pip list | grep -i xxx
 
 # Install missing component
-pip install lightrag-hku[offline]  # Install all offline deps
+pip install madrag-hku[offline]  # Install all offline deps
 ```
 
 ### Issue: Permission denied on tiktoken cache
@@ -297,20 +297,20 @@ mkdir -p ~/my_tiktoken_cache
 5. **Minimal Installation**: Only install what you need:
    ```bash
    # If you only need API with document processing
-   pip install lightrag-hku[api]
+   pip install madrag-hku[api]
    # Then manually add specific LLM: pip install openai
    ```
 
 ## Additional Resources
 
-- [LightRAG GitHub Repository](https://github.com/HKUDS/LightRAG)
+- [madRAG GitHub Repository](https://github.com/HKUDS/madRAG)
 - [Docker Deployment Guide](./DockerDeployment.md)
-- [API Server Documentation](./LightRAG-API-Server.md)
+- [API Server Documentation](./madRAG-API-Server.md)
 
 ## Support
 
 If you encounter issues not covered in this guide:
 
-1. Check the [GitHub Issues](https://github.com/HKUDS/LightRAG/issues)
+1. Check the [GitHub Issues](https://github.com/HKUDS/madRAG/issues)
 2. Review the [project documentation](../README.md)
 3. Create a new issue with your offline deployment details

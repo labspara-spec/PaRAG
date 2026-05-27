@@ -18,7 +18,7 @@ pytest.importorskip(
 )
 
 from opensearchpy.exceptions import NotFoundError, OpenSearchException  # type: ignore
-from lightrag.kg.opensearch_impl import (
+from madrag.kg.opensearch_impl import (
     OpenSearchKVStorage,
     OpenSearchDocStatusStorage,
     OpenSearchGraphStorage,
@@ -29,13 +29,13 @@ from lightrag.kg.opensearch_impl import (
     _sanitize_index_name,
     _verify_mirrored_id_mapping,
 )
-from lightrag.base import DocStatus, DocProcessingStatus
+from madrag.base import DocStatus, DocProcessingStatus
 
 pytestmark = pytest.mark.offline
 
 
 # ---------------------------------------------------------------------------
-# Mock the shared storage lock so tests don't need full LightRAG init
+# Mock the shared storage lock so tests don't need full madRAG init
 # ---------------------------------------------------------------------------
 
 
@@ -56,7 +56,7 @@ def _missing_index_error() -> NotFoundError:
 def patch_data_init_lock():
     """Patch get_data_init_lock globally so initialize() works without shared storage."""
     with patch(
-        "lightrag.kg.opensearch_impl.get_data_init_lock", side_effect=_mock_lock_factory
+        "madrag.kg.opensearch_impl.get_data_init_lock", side_effect=_mock_lock_factory
     ):
         yield
 
@@ -81,7 +81,7 @@ def patch_namespace_lock():
             cache[key] = lock
         return lock
 
-    with patch("lightrag.kg.opensearch_impl.get_namespace_lock", side_effect=factory):
+    with patch("madrag.kg.opensearch_impl.get_namespace_lock", side_effect=factory):
         yield
 
 
@@ -91,7 +91,7 @@ def patch_shard_doc_supported():
 
     Tests covering the < 3.3.0 fallback should override this with their own patch.
     """
-    with patch("lightrag.kg.opensearch_impl._shard_doc_supported", True):
+    with patch("madrag.kg.opensearch_impl._shard_doc_supported", True):
         yield
 
 
@@ -244,7 +244,7 @@ class TestClientManager:
     @pytest.mark.asyncio
     async def test_singleton_and_refcount(self):
         ClientManager._instances = {"client": None, "ref_count": 0}
-        with patch("lightrag.kg.opensearch_impl.AsyncOpenSearch") as mock_cls:
+        with patch("madrag.kg.opensearch_impl.AsyncOpenSearch") as mock_cls:
             mock_cls.return_value = self._stub_client()
             c1 = await ClientManager.get_client()
             c2 = await ClientManager.get_client()
@@ -259,7 +259,7 @@ class TestClientManager:
     @pytest.mark.asyncio
     async def test_close_called_on_last_release(self):
         ClientManager._instances = {"client": None, "ref_count": 0}
-        with patch("lightrag.kg.opensearch_impl.AsyncOpenSearch") as mock_cls:
+        with patch("madrag.kg.opensearch_impl.AsyncOpenSearch") as mock_cls:
             inner = self._stub_client()
             mock_cls.return_value = inner
             c = await ClientManager.get_client()
@@ -292,7 +292,7 @@ class TestMirroredIdVerification:
                 }
             }
         )
-        with patch("lightrag.kg.opensearch_impl._shard_doc_supported", False):
+        with patch("madrag.kg.opensearch_impl._shard_doc_supported", False):
             await _verify_mirrored_id_mapping(mock_client, "my_index")
 
     @pytest.mark.asyncio
@@ -305,7 +305,7 @@ class TestMirroredIdVerification:
                 }
             }
         )
-        with patch("lightrag.kg.opensearch_impl._shard_doc_supported", False):
+        with patch("madrag.kg.opensearch_impl._shard_doc_supported", False):
             with pytest.raises(RuntimeError, match="__mirrored_id"):
                 await _verify_mirrored_id_mapping(mock_client, "my_index")
 
@@ -315,7 +315,7 @@ class TestMirroredIdVerification:
         mock_client.indices.get_mapping = AsyncMock(
             side_effect=OpenSearchException("transport error")
         )
-        with patch("lightrag.kg.opensearch_impl._shard_doc_supported", False):
+        with patch("madrag.kg.opensearch_impl._shard_doc_supported", False):
             await _verify_mirrored_id_mapping(mock_client, "my_index")
 
 
@@ -375,7 +375,7 @@ class TestKVStorage:
         )
         with (
             patch.object(ClientManager, "get_client", return_value=mock_client),
-            patch("lightrag.kg.opensearch_impl._shard_doc_supported", False),
+            patch("madrag.kg.opensearch_impl._shard_doc_supported", False),
         ):
             s = self._make(global_config, embed_func)
             with pytest.raises(RuntimeError, match="__mirrored_id"):
@@ -455,7 +455,7 @@ class TestKVStorage:
         """The flush (during index_done_callback) must not request per-op refresh."""
         with patch.object(ClientManager, "get_client", return_value=mock_client):
             with patch(
-                "lightrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
+                "madrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
             ) as mock_bulk:
                 mock_bulk.return_value = (1, [])
                 s = self._make(global_config, embed_func)
@@ -472,7 +472,7 @@ class TestKVStorage:
         """Buffered docs carry create_time / update_time set eagerly during upsert."""
         with patch.object(ClientManager, "get_client", return_value=mock_client):
             with patch(
-                "lightrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
+                "madrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
             ) as mock_bulk:
                 mock_bulk.return_value = (1, [])
                 s = self._make(global_config, embed_func)
@@ -500,7 +500,7 @@ class TestKVStorage:
         """delete() buffers tombstones; the bulk delete fires on flush."""
         with patch.object(ClientManager, "get_client", return_value=mock_client):
             with patch(
-                "lightrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
+                "madrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
             ) as mock_bulk:
                 mock_bulk.return_value = (2, [])
                 s = self._make(global_config, embed_func)
@@ -531,7 +531,7 @@ class TestKVStorage:
         )
         with patch.object(ClientManager, "get_client", return_value=mock_client):
             with patch(
-                "lightrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
+                "madrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
             ) as mock_bulk:
                 mock_bulk.return_value = (1, [])
                 s = self._make(global_config, embed_func)
@@ -551,7 +551,7 @@ class TestKVStorage:
     ):
         with patch.object(ClientManager, "get_client", return_value=mock_client):
             with patch(
-                "lightrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
+                "madrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
             ) as mock_bulk:
                 mock_bulk.return_value = (1, [])
                 s = self._make(global_config, embed_func)
@@ -690,7 +690,7 @@ class TestKVStorageBatching:
         """Many small upsert() calls collapse to one async_bulk on flush."""
         with patch.object(ClientManager, "get_client", return_value=mock_client):
             with patch(
-                "lightrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
+                "madrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
             ) as mock_bulk:
                 mock_bulk.return_value = (5, [])
                 s = self._make(global_config, embed_func)
@@ -711,7 +711,7 @@ class TestKVStorageBatching:
         """Upserting the same id twice keeps only the latest payload."""
         with patch.object(ClientManager, "get_client", return_value=mock_client):
             with patch(
-                "lightrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
+                "madrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
             ) as mock_bulk:
                 mock_bulk.return_value = (1, [])
                 s = self._make(global_config, embed_func)
@@ -734,7 +734,7 @@ class TestKVStorageBatching:
         """
         with patch.object(ClientManager, "get_client", return_value=mock_client):
             with patch(
-                "lightrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
+                "madrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
             ) as mock_bulk:
                 mock_bulk.return_value = (1, [])
                 s = self._make(global_config, embed_func)
@@ -755,7 +755,7 @@ class TestKVStorageBatching:
         """An upsert after a buffered delete removes the tombstone."""
         with patch.object(ClientManager, "get_client", return_value=mock_client):
             with patch(
-                "lightrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
+                "madrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
             ) as mock_bulk:
                 mock_bulk.return_value = (1, [])
                 s = self._make(global_config, embed_func)
@@ -779,7 +779,7 @@ class TestKVStorageBatching:
         """
         with patch.object(ClientManager, "get_client", return_value=mock_client):
             with patch(
-                "lightrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
+                "madrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
             ) as mock_bulk:
                 mock_bulk.return_value = (1, [])
                 s = self._make(global_config, embed_func)
@@ -925,7 +925,7 @@ class TestKVStorageBatching:
         """finalize() flushes the buffer before releasing the client."""
         with patch.object(ClientManager, "get_client", return_value=mock_client):
             with patch(
-                "lightrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
+                "madrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
             ) as mock_bulk:
                 mock_bulk.return_value = (1, [])
                 s = self._make(global_config, embed_func)
@@ -952,7 +952,7 @@ class TestKVStorageBatching:
                 ClientManager, "release_client", new_callable=AsyncMock
             ) as mock_release:
                 with patch(
-                    "lightrag.kg.opensearch_impl.helpers.async_bulk",
+                    "madrag.kg.opensearch_impl.helpers.async_bulk",
                     new_callable=AsyncMock,
                 ) as mock_bulk:
                     # 503 is retryable; flush keeps it in the buffer.
@@ -982,7 +982,7 @@ class TestKVStorageBatching:
                 ClientManager, "release_client", new_callable=AsyncMock
             ) as mock_release:
                 with patch(
-                    "lightrag.kg.opensearch_impl.helpers.async_bulk",
+                    "madrag.kg.opensearch_impl.helpers.async_bulk",
                     new_callable=AsyncMock,
                 ) as mock_bulk:
                     mock_bulk.side_effect = OpenSearchException("connection reset")
@@ -1010,7 +1010,7 @@ class TestKVStorageBatching:
                 ClientManager, "release_client", new_callable=AsyncMock
             ) as mock_release:
                 with patch(
-                    "lightrag.kg.opensearch_impl.helpers.async_bulk",
+                    "madrag.kg.opensearch_impl.helpers.async_bulk",
                     new_callable=AsyncMock,
                 ) as mock_bulk:
                     mock_bulk.side_effect = asyncio.CancelledError()
@@ -1043,7 +1043,7 @@ class TestKVStorageBatching:
 
         mock_client.indices.delete = AsyncMock(side_effect=watch_indices_delete)
         with patch.object(ClientManager, "get_client", return_value=mock_client):
-            with patch("lightrag.kg.opensearch_impl.helpers.async_bulk", new=slow_bulk):
+            with patch("madrag.kg.opensearch_impl.helpers.async_bulk", new=slow_bulk):
                 s = self._make(global_config, embed_func)
                 await s.initialize()
                 await s.upsert({"k1": {"content": "x"}})
@@ -1076,7 +1076,7 @@ class TestKVStorageBatching:
         """Transient (5xx) per-doc failures stay buffered for the next flush."""
         with patch.object(ClientManager, "get_client", return_value=mock_client):
             with patch(
-                "lightrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
+                "madrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
             ) as mock_bulk:
                 mock_bulk.return_value = (
                     1,
@@ -1097,7 +1097,7 @@ class TestKVStorageBatching:
         the buffer rather than retried forever."""
         with patch.object(ClientManager, "get_client", return_value=mock_client):
             with patch(
-                "lightrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
+                "madrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
             ) as mock_bulk:
                 mock_bulk.return_value = (
                     0,
@@ -1138,7 +1138,7 @@ class TestKVStorageBatching:
             return (len(actions), [])
 
         with patch.object(ClientManager, "get_client", return_value=mock_client):
-            with patch("lightrag.kg.opensearch_impl.helpers.async_bulk", new=slow_bulk):
+            with patch("madrag.kg.opensearch_impl.helpers.async_bulk", new=slow_bulk):
                 s = self._make(global_config, embed_func)
                 await s.initialize()
                 await s.upsert({"k1": {"content": "first"}})
@@ -1234,7 +1234,7 @@ class TestDocStatusStorage:
     ):
         with patch.object(ClientManager, "get_client", return_value=mock_client):
             with patch(
-                "lightrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
+                "madrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
             ) as mock_bulk:
                 mock_bulk.return_value = (1, [])
                 s = self._make(global_config, embed_func)
@@ -1739,7 +1739,7 @@ class TestDocStatusStorage:
         )
         with patch.object(ClientManager, "get_client", return_value=mock_client):
             with patch(
-                "lightrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
+                "madrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
             ) as mock_bulk:
                 mock_bulk.return_value = (1, [])
                 s = self._make(global_config, embed_func)
@@ -1759,7 +1759,7 @@ class TestDocStatusStorage:
     ):
         with patch.object(ClientManager, "get_client", return_value=mock_client):
             with patch(
-                "lightrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
+                "madrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
             ) as mock_bulk:
                 mock_bulk.return_value = (1, [])
                 s = self._make(global_config, embed_func)
@@ -2062,7 +2062,7 @@ class TestGraphStorage:
             )
 
             with patch(
-                "lightrag.kg.opensearch_impl.helpers.async_bulk",
+                "madrag.kg.opensearch_impl.helpers.async_bulk",
                 new=AsyncMock(side_effect=capture_bulk),
             ):
                 await s.upsert_edges_batch(
@@ -2151,7 +2151,7 @@ class TestGraphStorage:
     async def test_remove_nodes(self, global_config, embed_func, mock_client):
         with patch.object(ClientManager, "get_client", return_value=mock_client):
             with patch(
-                "lightrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
+                "madrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
             ) as mock_bulk:
                 mock_bulk.return_value = (2, [])
                 s = self._make(global_config, embed_func)
@@ -2892,7 +2892,7 @@ class TestVectorStorage:
         """Embeddings are generated eagerly during upsert; bulk write is deferred to flush."""
         with patch.object(ClientManager, "get_client", return_value=mock_client):
             with patch(
-                "lightrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
+                "madrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
             ) as mock_bulk:
                 mock_bulk.return_value = (2, [])
                 s = self._make(global_config, embed_func)
@@ -3083,7 +3083,7 @@ class TestVectorStorage:
         """delete() buffers ids; the actual bulk delete fires on flush."""
         with patch.object(ClientManager, "get_client", return_value=mock_client):
             with patch(
-                "lightrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
+                "madrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
             ) as mock_bulk:
                 mock_bulk.return_value = (2, [])
                 s = self._make(global_config, embed_func)
@@ -3230,7 +3230,7 @@ class TestVectorStorageBatching:
         """Many small upsert() calls collapse to one async_bulk on flush."""
         with patch.object(ClientManager, "get_client", return_value=mock_client):
             with patch(
-                "lightrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
+                "madrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
             ) as mock_bulk:
                 mock_bulk.return_value = (5, [])
                 s = self._make(global_config, embed_func)
@@ -3251,7 +3251,7 @@ class TestVectorStorageBatching:
         """Upserting the same id twice keeps only the latest payload."""
         with patch.object(ClientManager, "get_client", return_value=mock_client):
             with patch(
-                "lightrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
+                "madrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
             ) as mock_bulk:
                 mock_bulk.return_value = (1, [])
                 s = self._make(global_config, embed_func)
@@ -3270,7 +3270,7 @@ class TestVectorStorageBatching:
         """A delete after a buffered upsert removes the upsert from the buffer."""
         with patch.object(ClientManager, "get_client", return_value=mock_client):
             with patch(
-                "lightrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
+                "madrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
             ) as mock_bulk:
                 mock_bulk.return_value = (1, [])
                 s = self._make(global_config, embed_func)
@@ -3291,7 +3291,7 @@ class TestVectorStorageBatching:
         """An upsert after a buffered delete removes the tombstone."""
         with patch.object(ClientManager, "get_client", return_value=mock_client):
             with patch(
-                "lightrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
+                "madrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
             ) as mock_bulk:
                 mock_bulk.return_value = (1, [])
                 s = self._make(global_config, embed_func)
@@ -3384,7 +3384,7 @@ class TestVectorStorageBatching:
         """finalize() flushes buffered writes before releasing the client."""
         with patch.object(ClientManager, "get_client", return_value=mock_client):
             with patch(
-                "lightrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
+                "madrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
             ) as mock_bulk:
                 mock_bulk.return_value = (1, [])
                 s = self._make(global_config, embed_func)
@@ -3410,7 +3410,7 @@ class TestVectorStorageBatching:
                 ClientManager, "release_client", new_callable=AsyncMock
             ) as mock_release:
                 with patch(
-                    "lightrag.kg.opensearch_impl.helpers.async_bulk",
+                    "madrag.kg.opensearch_impl.helpers.async_bulk",
                     new_callable=AsyncMock,
                 ) as mock_bulk:
                     mock_bulk.return_value = (
@@ -3438,7 +3438,7 @@ class TestVectorStorageBatching:
                 ClientManager, "release_client", new_callable=AsyncMock
             ) as mock_release:
                 with patch(
-                    "lightrag.kg.opensearch_impl.helpers.async_bulk",
+                    "madrag.kg.opensearch_impl.helpers.async_bulk",
                     new_callable=AsyncMock,
                 ) as mock_bulk:
                     mock_bulk.side_effect = OpenSearchException("connection reset")
@@ -3465,7 +3465,7 @@ class TestVectorStorageBatching:
                 ClientManager, "release_client", new_callable=AsyncMock
             ) as mock_release:
                 with patch(
-                    "lightrag.kg.opensearch_impl.helpers.async_bulk",
+                    "madrag.kg.opensearch_impl.helpers.async_bulk",
                     new_callable=AsyncMock,
                 ) as mock_bulk:
                     mock_bulk.side_effect = asyncio.CancelledError()
@@ -3484,7 +3484,7 @@ class TestVectorStorageBatching:
         """drop() throws away pending writes; nothing is flushed to a deleted index."""
         with patch.object(ClientManager, "get_client", return_value=mock_client):
             with patch(
-                "lightrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
+                "madrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
             ) as mock_bulk:
                 s = self._make(global_config, embed_func)
                 await s.initialize()
@@ -3502,7 +3502,7 @@ class TestVectorStorageBatching:
         """Transient (5xx) per-doc failures stay buffered for the next flush."""
         with patch.object(ClientManager, "get_client", return_value=mock_client):
             with patch(
-                "lightrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
+                "madrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
             ) as mock_bulk:
                 # First flush: v1 succeeds, v2 fails with 503 (retryable).
                 mock_bulk.return_value = (
@@ -3529,7 +3529,7 @@ class TestVectorStorageBatching:
         """Pending docs whose src_id/tgt_id match the entity are dropped before delete_by_query."""
         with patch.object(ClientManager, "get_client", return_value=mock_client):
             with patch(
-                "lightrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
+                "madrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
             ) as mock_bulk:
                 mock_bulk.return_value = (1, [])
                 s = self._make(global_config, embed_func)
@@ -3554,7 +3554,7 @@ class TestVectorStorageBatching:
                 mock_client.delete_by_query.assert_awaited_once()
 
     def test_extract_bulk_failed_ids_classifies_by_status(self):
-        from lightrag.kg.opensearch_impl import _extract_bulk_failed_ids
+        from madrag.kg.opensearch_impl import _extract_bulk_failed_ids
 
         # No failures -> empty containers.
         retryable, non_retryable = _extract_bulk_failed_ids(None)
@@ -3609,7 +3609,7 @@ class TestVectorStorageBatching:
         assert by_id["n-404"].error == "not found"
 
     def test_extract_bulk_failed_ids_truncates_long_errors(self):
-        from lightrag.kg.opensearch_impl import (
+        from madrag.kg.opensearch_impl import (
             _extract_bulk_failed_ids,
             _BULK_ERROR_SUMMARY_MAX_LEN,
         )
@@ -3637,7 +3637,7 @@ class TestVectorStorageBatching:
         """4xx (non-429) failures are dropped, not perpetually retried."""
         with patch.object(ClientManager, "get_client", return_value=mock_client):
             with patch(
-                "lightrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
+                "madrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
             ) as mock_bulk:
                 # v1 fails permanently (400 mapping error); v2 fails
                 # transiently (503).
@@ -3675,7 +3675,7 @@ class TestVectorStorageBatching:
             return (len(actions), [])
 
         with patch.object(ClientManager, "get_client", return_value=mock_client):
-            with patch("lightrag.kg.opensearch_impl.helpers.async_bulk", new=slow_bulk):
+            with patch("madrag.kg.opensearch_impl.helpers.async_bulk", new=slow_bulk):
                 s = self._make(global_config, embed_func)
                 await s.initialize()
                 await s.upsert({"v1": {"content": "first"}})
@@ -3733,7 +3733,7 @@ class TestVectorStorageBatching:
             )
 
         with patch.object(ClientManager, "get_client", return_value=mock_client):
-            with patch("lightrag.kg.opensearch_impl.helpers.async_bulk", new=slow_bulk):
+            with patch("madrag.kg.opensearch_impl.helpers.async_bulk", new=slow_bulk):
                 s = self._make(global_config, embed_func)
                 await s.initialize()
                 await s.upsert({"v1": {"content": "first"}})
@@ -3850,26 +3850,26 @@ class TestVectorStorageBatching:
             }
             for i in range(6)
         ]
-        # lightrag logger has propagate=False, so caplog's root handler
+        # madrag logger has propagate=False, so caplog's root handler
         # would miss these records. Re-enable propagation just for this
         # test so caplog can capture the warning we emit.
-        lightrag_logger = _logging.getLogger("lightrag")
-        original_propagate = lightrag_logger.propagate
-        lightrag_logger.propagate = True
+        madrag_logger = _logging.getLogger("madrag")
+        original_propagate = madrag_logger.propagate
+        madrag_logger.propagate = True
         try:
             with patch.object(ClientManager, "get_client", return_value=mock_client):
                 with patch(
-                    "lightrag.kg.opensearch_impl.helpers.async_bulk",
+                    "madrag.kg.opensearch_impl.helpers.async_bulk",
                     new_callable=AsyncMock,
                 ) as mock_bulk:
                     mock_bulk.return_value = (0, failed)
                     s = self._make(global_config, embed_func)
                     await s.initialize()
                     await s.upsert({f"v{i}": {"content": f"d{i}"} for i in range(6)})
-                    with caplog.at_level("WARNING", logger="lightrag"):
+                    with caplog.at_level("WARNING", logger="madrag"):
                         await s.index_done_callback()
         finally:
-            lightrag_logger.propagate = original_propagate
+            madrag_logger.propagate = original_propagate
         warning_text = "\n".join(
             rec.message for rec in caplog.records if rec.levelname == "WARNING"
         )
@@ -3899,7 +3899,7 @@ class TestVectorStorageBatching:
         )
         with patch.object(ClientManager, "get_client", return_value=mock_client):
             with patch(
-                "lightrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
+                "madrag.kg.opensearch_impl.helpers.async_bulk", new_callable=AsyncMock
             ) as mock_bulk:
                 mock_bulk.return_value = (1, [])
                 s = self._make(global_config, embed_func)
@@ -3938,7 +3938,7 @@ class TestVectorStorageBatching:
         mock_client.delete_by_query = AsyncMock(side_effect=watch_delete_by_query)
 
         with patch.object(ClientManager, "get_client", return_value=mock_client):
-            with patch("lightrag.kg.opensearch_impl.helpers.async_bulk", new=slow_bulk):
+            with patch("madrag.kg.opensearch_impl.helpers.async_bulk", new=slow_bulk):
                 s = self._make(global_config, embed_func)
                 await s.initialize()
                 await s.upsert(
@@ -3989,7 +3989,7 @@ class TestVectorStorageBatching:
         mock_client.indices.delete = AsyncMock(side_effect=watch_indices_delete)
 
         with patch.object(ClientManager, "get_client", return_value=mock_client):
-            with patch("lightrag.kg.opensearch_impl.helpers.async_bulk", new=slow_bulk):
+            with patch("madrag.kg.opensearch_impl.helpers.async_bulk", new=slow_bulk):
                 s = self._make(global_config, embed_func)
                 await s.initialize()
                 await s.upsert({"v1": {"content": "x"}})

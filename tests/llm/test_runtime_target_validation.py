@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from lightrag.api.runtime_validation import (
+from madrag.api.runtime_validation import (
     RuntimeEnvironment,
     validate_runtime_target,
     validate_runtime_target_from_env_file,

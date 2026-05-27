@@ -14,8 +14,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from lightrag.base import DocStatus
-from lightrag.namespace import NameSpace
+from madrag.base import DocStatus
+from madrag.namespace import NameSpace
 
 pytestmark = pytest.mark.offline
 
@@ -147,20 +147,20 @@ def redis_doc_status(monkeypatch):
     # the real redis-py ConnectionPool.from_url (which is lazy but still
     # parses URLs and caches state we don't want).
     monkeypatch.setattr(
-        "lightrag.kg.redis_impl.RedisConnectionManager.get_pool",
+        "madrag.kg.redis_impl.RedisConnectionManager.get_pool",
         lambda redis_url: MagicMock(name="fake_pool"),
     )
     monkeypatch.setattr(
-        "lightrag.kg.redis_impl.RedisConnectionManager.release_pool",
+        "madrag.kg.redis_impl.RedisConnectionManager.release_pool",
         lambda redis_url: None,
     )
     # Swap the Redis client class used in __post_init__ so any call site that
     # reaches self._redis hits the fake.
     monkeypatch.setattr(
-        "lightrag.kg.redis_impl.Redis", lambda connection_pool=None, **_: fake
+        "madrag.kg.redis_impl.Redis", lambda connection_pool=None, **_: fake
     )
 
-    from lightrag.kg.redis_impl import RedisDocStatusStorage
+    from madrag.kg.redis_impl import RedisDocStatusStorage
 
     storage = RedisDocStatusStorage(
         namespace=NameSpace.DOC_STATUS,

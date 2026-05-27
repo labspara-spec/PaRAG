@@ -3,9 +3,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-import lightrag.utils as utils_module
-from lightrag.kg.postgres_impl import PGGraphStorage, PostgreSQLDB
-from lightrag.namespace import NameSpace
+import madrag.utils as utils_module
+from madrag.kg.postgres_impl import PGGraphStorage, PostgreSQLDB
+from madrag.namespace import NameSpace
 
 
 def make_db() -> PostgreSQLDB:
@@ -37,7 +37,7 @@ async def test_execute_timing_logs_success():
 
     db._run_with_retry = AsyncMock(side_effect=fake_run_with_retry)
 
-    with patch("lightrag.kg.postgres_impl.performance_timing_log") as timing_log:
+    with patch("madrag.kg.postgres_impl.performance_timing_log") as timing_log:
         await db.execute("SELECT 1", timing_label="test label")
 
     assert any(
@@ -57,7 +57,7 @@ async def test_execute_timing_logs_failure():
 
     db._run_with_retry = AsyncMock(side_effect=fake_run_with_retry)
 
-    with patch("lightrag.kg.postgres_impl.performance_timing_log") as timing_log:
+    with patch("madrag.kg.postgres_impl.performance_timing_log") as timing_log:
         with pytest.raises(RuntimeError, match="boom"):
             await db.execute("SELECT 1", timing_label="test label")
 

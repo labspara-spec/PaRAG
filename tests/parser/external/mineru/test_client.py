@@ -19,8 +19,8 @@ from typing import Any
 
 import pytest
 
-from lightrag.parser.external.mineru import is_bundle_valid
-from lightrag.parser.external.mineru.client import MinerURawClient
+from madrag.parser.external.mineru import is_bundle_valid
+from madrag.parser.external.mineru.client import MinerURawClient
 
 
 # ---------------------------------------------------------------------------
@@ -131,7 +131,7 @@ async def _collect_async_bytes(stream: Any) -> bytes:
 
 @pytest.fixture
 def fake_httpx(monkeypatch: pytest.MonkeyPatch) -> type:
-    import lightrag.parser.external.mineru.client as mod
+    import madrag.parser.external.mineru.client as mod
 
     fake = type(
         "FakeHttpx",

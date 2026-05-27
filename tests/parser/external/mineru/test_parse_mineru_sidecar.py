@@ -21,18 +21,18 @@ from typing import Any
 import numpy as np
 import pytest
 
-from lightrag import LightRAG
-from lightrag.constants import (
+from madrag import madRAG
+from madrag.constants import (
     FULL_DOCS_FORMAT_LIGHTRAG,
 )
-from lightrag.parser.external.mineru import compute_size_and_hash
-from lightrag.parser.external.mineru.cache import current_mineru_options_signature
-from lightrag.parser.external.mineru.manifest import (
+from madrag.parser.external.mineru import compute_size_and_hash
+from madrag.parser.external.mineru.cache import current_mineru_options_signature
+from madrag.parser.external.mineru.manifest import (
     Manifest,
     ManifestFile,
     write_manifest,
 )
-from lightrag.utils import EmbeddingFunc, Tokenizer
+from madrag.utils import EmbeddingFunc, Tokenizer
 
 
 class _SimpleTokenizerImpl:
@@ -51,8 +51,8 @@ async def _mock_llm(prompt: Any, **kwargs: Any) -> str:
     return '{"name":"x","summary":"s","detail_description":"d"}'
 
 
-def _new_rag(tmp_path: Path) -> LightRAG:
-    return LightRAG(
+def _new_rag(tmp_path: Path) -> madRAG:
+    return madRAG(
         working_dir=str(tmp_path),
         workspace=f"test-mineru-sidecar-{tmp_path.name}",
         llm_model_func=_mock_llm,
@@ -93,7 +93,7 @@ def _install_fake_download(monkeypatch: pytest.MonkeyPatch) -> dict[str, int]:
     """Replace :meth:`MinerURawClient.download_into` with a recorder that
     writes a synthetic bundle (content_list.json + one image + manifest).
     """
-    import lightrag.parser.external.mineru.client as client_mod
+    import madrag.parser.external.mineru.client as client_mod
 
     counters = {"calls": 0, "upload_names": []}
 
@@ -158,7 +158,7 @@ def test_parse_mineru_emits_compliant_sidecar(
         async def _noop_archive(_p: str) -> None:
             return None
 
-        import lightrag.pipeline as pipeline_module
+        import madrag.pipeline as pipeline_module
 
         monkeypatch.setattr(
             pipeline_module,
@@ -293,7 +293,7 @@ def test_parse_mineru_cache_hit_skips_download(
         async def _noop_archive(_p: str) -> None:
             return None
 
-        import lightrag.pipeline as pipeline_module
+        import madrag.pipeline as pipeline_module
 
         monkeypatch.setattr(
             pipeline_module,
@@ -444,7 +444,7 @@ def test_parse_mineru_cache_invalidates_on_source_change(
         async def _noop_archive(_p: str) -> None:
             return None
 
-        import lightrag.pipeline as pipeline_module
+        import madrag.pipeline as pipeline_module
 
         monkeypatch.setattr(
             pipeline_module,

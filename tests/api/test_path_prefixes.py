@@ -16,7 +16,7 @@ import pytest
 
 
 # Env vars that the project's `.env` may have populated (via load_dotenv at
-# import time of lightrag.api.config). Tests must be hermetic and not depend
+# import time of madrag.api.config). Tests must be hermetic and not depend
 # on developer-local .env values, so we clear/override anything that affects
 # parse_args() / create_app().
 _ENV_VARS_TO_ISOLATE = (
@@ -40,7 +40,7 @@ _ENV_VARS_TO_ISOLATE = (
 def _isolate_env(monkeypatch):
     """Isolate tests from developer-local .env pollution.
 
-    The lightrag.api.config module loads .env at import time, which can leave
+    The madrag.api.config module loads .env at import time, which can leave
     bindings/hosts/keys in os.environ that mismatch what these tests assume.
     Clear them, then set the minimal viable defaults so
     create_app's binding validation passes without touching real services.
@@ -54,11 +54,11 @@ def _isolate_env(monkeypatch):
 @pytest.fixture
 def mock_args_api_prefix():
     """Create mock args with API prefix."""
-    from lightrag.api.config import parse_args
+    from madrag.api.config import parse_args
 
     original_argv = sys.argv.copy()
     try:
-        sys.argv = ["lightrag-server", "--api-prefix", "/test-api"]
+        sys.argv = ["madrag-server", "--api-prefix", "/test-api"]
         args = parse_args()
         yield args
     finally:
@@ -68,11 +68,11 @@ def mock_args_api_prefix():
 @pytest.fixture
 def mock_args_no_prefix():
     """Create mock args without API prefix."""
-    from lightrag.api.config import parse_args
+    from madrag.api.config import parse_args
 
     original_argv = sys.argv.copy()
     try:
-        sys.argv = ["lightrag-server"]
+        sys.argv = ["madrag-server"]
         args = parse_args()
         yield args
     finally:
@@ -84,18 +84,18 @@ class TestRootPathConfiguration:
 
     def test_root_path_set_when_prefix_provided(self, mock_args_api_prefix):
         """Test app.root_path reflects api_prefix."""
-        with patch("lightrag.api.lightrag_server.LightRAG") as mock_rag:
+        with patch("madrag.api.madrag_server.madRAG") as mock_rag:
             mock_rag.return_value = MagicMock()
-            from lightrag.api.lightrag_server import create_app
+            from madrag.api.madrag_server import create_app
 
             app = create_app(mock_args_api_prefix)
             assert app.root_path == "/test-api"
 
     def test_root_path_none_when_no_prefix(self, mock_args_no_prefix):
         """Test app.root_path is not set when no prefix is configured."""
-        with patch("lightrag.api.lightrag_server.LightRAG") as mock_rag:
+        with patch("madrag.api.madrag_server.madRAG") as mock_rag:
             mock_rag.return_value = MagicMock()
-            from lightrag.api.lightrag_server import create_app
+            from madrag.api.madrag_server import create_app
 
             app = create_app(mock_args_no_prefix)
             # When no prefix, root_path is None (not passed to FastAPI)
@@ -112,9 +112,9 @@ class TestRoutesAtNaturalPaths:
         FastAPI injects root_path into the ASGI scope, and Starlette strips
         it from the path before matching. So /test-api/docs and /docs both work.
         """
-        with patch("lightrag.api.lightrag_server.LightRAG") as mock_rag:
+        with patch("madrag.api.madrag_server.madRAG") as mock_rag:
             mock_rag.return_value = MagicMock()
-            from lightrag.api.lightrag_server import create_app
+            from madrag.api.madrag_server import create_app
 
             app = create_app(mock_args_api_prefix)
             client = TestClient(app)
@@ -135,9 +135,9 @@ class TestRoutesAtNaturalPaths:
 
     def test_document_routes_at_natural_path(self, mock_args_api_prefix):
         """Test document routes are at /documents/ (their router-level prefix)."""
-        with patch("lightrag.api.lightrag_server.LightRAG") as mock_rag:
+        with patch("madrag.api.madrag_server.madRAG") as mock_rag:
             mock_rag.return_value = MagicMock()
-            from lightrag.api.lightrag_server import create_app
+            from madrag.api.madrag_server import create_app
 
             app = create_app(mock_args_api_prefix)
             client = TestClient(app)
@@ -147,16 +147,16 @@ class TestRoutesAtNaturalPaths:
                 json={},
                 headers={"Authorization": "Bearer test"},
             )
-            # The route is mounted; the mocked LightRAG may cause 401/422/500,
+            # The route is mounted; the mocked madRAG may cause 401/422/500,
             # but a missing route (404) or wrong method (405) means routing
             # itself broke and is what we want to catch here.
             assert response.status_code not in (404, 405)
 
     def test_routes_accessible_at_root_no_prefix(self, mock_args_no_prefix):
         """Test routes are at root when no prefix is set (default)."""
-        with patch("lightrag.api.lightrag_server.LightRAG") as mock_rag:
+        with patch("madrag.api.madrag_server.madRAG") as mock_rag:
             mock_rag.return_value = MagicMock()
-            from lightrag.api.lightrag_server import create_app
+            from madrag.api.madrag_server import create_app
 
             app = create_app(mock_args_no_prefix)
             client = TestClient(app)
@@ -179,9 +179,9 @@ class TestOpenAPISpecIntegration:
 
     def test_openapi_spec_has_servers_url_with_prefix(self, mock_args_api_prefix):
         """Test OpenAPI spec servers URL includes the prefix via root_path."""
-        with patch("lightrag.api.lightrag_server.LightRAG") as mock_rag:
+        with patch("madrag.api.madrag_server.madRAG") as mock_rag:
             mock_rag.return_value = MagicMock()
-            from lightrag.api.lightrag_server import create_app
+            from madrag.api.madrag_server import create_app
 
             app = create_app(mock_args_api_prefix)
             client = TestClient(app)
@@ -202,9 +202,9 @@ class TestOpenAPISpecIntegration:
 
     def test_openapi_spec_no_servers_without_prefix(self, mock_args_no_prefix):
         """Test OpenAPI spec has no servers entry when no root_path."""
-        with patch("lightrag.api.lightrag_server.LightRAG") as mock_rag:
+        with patch("madrag.api.madrag_server.madRAG") as mock_rag:
             mock_rag.return_value = MagicMock()
-            from lightrag.api.lightrag_server import create_app
+            from madrag.api.madrag_server import create_app
 
             app = create_app(mock_args_no_prefix)
             client = TestClient(app)
@@ -218,9 +218,9 @@ class TestOpenAPISpecIntegration:
 
     def test_openapi_spec_paths_at_natural_paths(self, mock_args_api_prefix):
         """Test OpenAPI spec paths are at natural paths (not prefixed)."""
-        with patch("lightrag.api.lightrag_server.LightRAG") as mock_rag:
+        with patch("madrag.api.madrag_server.madRAG") as mock_rag:
             mock_rag.return_value = MagicMock()
-            from lightrag.api.lightrag_server import create_app
+            from madrag.api.madrag_server import create_app
 
             app = create_app(mock_args_api_prefix)
             client = TestClient(app)
@@ -246,9 +246,9 @@ class TestWebUIPrefixIntegration:
     def test_webui_at_prefixed_path(self, mock_args_api_prefix):
         """With root_path="/test-api" the WebUI lives at /test-api/webui/
         because FastAPI injects root_path into the ASGI scope."""
-        with patch("lightrag.api.lightrag_server.LightRAG") as mock_rag:
+        with patch("madrag.api.madrag_server.madRAG") as mock_rag:
             mock_rag.return_value = MagicMock()
-            from lightrag.api.lightrag_server import create_app
+            from madrag.api.madrag_server import create_app
 
             app = create_app(mock_args_api_prefix)
             client = TestClient(app)
@@ -258,9 +258,9 @@ class TestWebUIPrefixIntegration:
 
     def test_webui_without_api_prefix(self, mock_args_no_prefix):
         """Without an API prefix the WebUI is served at /webui/."""
-        with patch("lightrag.api.lightrag_server.LightRAG") as mock_rag:
+        with patch("madrag.api.madrag_server.madRAG") as mock_rag:
             mock_rag.return_value = MagicMock()
-            from lightrag.api.lightrag_server import create_app
+            from madrag.api.madrag_server import create_app
 
             app = create_app(mock_args_no_prefix)
             client = TestClient(app)
@@ -274,7 +274,7 @@ class TestEnvironmentVariables:
 
     def test_env_api_prefix(self):
         """Test LIGHTRAG_API_PREFIX environment variable."""
-        from lightrag.api.config import get_env_value
+        from madrag.api.config import get_env_value
 
         os.environ["LIGHTRAG_API_PREFIX"] = "unit-test-back/api"
         try:
@@ -290,18 +290,18 @@ class TestPathNormalization:
     passing to FastAPI's `root_path`, which doesn't accept arbitrary strings."""
 
     def _build(self, *cli_args):
-        # sys.argv must be the lightrag-server form *before* lightrag_server is
-        # imported, because importing lightrag.api.utils_api evaluates
+        # sys.argv must be the madrag-server form *before* madrag_server is
+        # imported, because importing madrag.api.utils_api evaluates
         # `global_args.whitelist_paths` at module top level, which triggers
         # parse_args() against whatever sys.argv currently holds.
         original_argv = sys.argv.copy()
         try:
-            sys.argv = ["lightrag-server", *cli_args]
-            from lightrag.api.config import parse_args
-            from lightrag.api.lightrag_server import create_app
+            sys.argv = ["madrag-server", *cli_args]
+            from madrag.api.config import parse_args
+            from madrag.api.madrag_server import create_app
 
             args = parse_args()
-            with patch("lightrag.api.lightrag_server.LightRAG") as mock_rag:
+            with patch("madrag.api.madrag_server.madRAG") as mock_rag:
                 mock_rag.return_value = MagicMock()
                 return create_app(args)
         finally:
@@ -332,7 +332,7 @@ class TestRuntimeConfigInjection:
     every HTML response, so one build can serve any reverse-proxy mount.
 
     These tests stage a minimal index.html in a tmp dir, patch
-    `lightrag_server.__file__` so both `check_frontend_build()` and the
+    `madrag_server.__file__` so both `check_frontend_build()` and the
     static-files mount resolve to it, then drive the app via TestClient
     and assert that the body contains the expected injected JSON.
     """
@@ -361,19 +361,19 @@ class TestRuntimeConfigInjection:
     def _build_app(self, tmp_path, monkeypatch, *cli_args):
         # Force benign argv before the (potentially fresh) module import —
         # see TestPathNormalization._build for the rationale.
-        monkeypatch.setattr(sys, "argv", ["lightrag-server", *cli_args])
-        from lightrag.api.config import parse_args
-        from lightrag.api import lightrag_server
-        from lightrag.api.lightrag_server import create_app
+        monkeypatch.setattr(sys, "argv", ["madrag-server", *cli_args])
+        from madrag.api.config import parse_args
+        from madrag.api import madrag_server
+        from madrag.api.madrag_server import create_app
 
         # Redirect both check_frontend_build() and the StaticFiles mount to
         # our staged tmp directory.
         monkeypatch.setattr(
-            lightrag_server, "__file__", str(tmp_path / "lightrag_server.py")
+            madrag_server, "__file__", str(tmp_path / "madrag_server.py")
         )
 
         args = parse_args()
-        with patch("lightrag.api.lightrag_server.LightRAG") as mock_rag:
+        with patch("madrag.api.madrag_server.madRAG") as mock_rag:
             mock_rag.return_value = MagicMock()
             return create_app(args)
 
@@ -530,12 +530,12 @@ class TestUvicornRootPathSemantics:
     def _build_app_with_prefix(self, prefix):
         original_argv = sys.argv.copy()
         try:
-            sys.argv = ["lightrag-server", "--api-prefix", prefix]
-            from lightrag.api.config import parse_args
-            from lightrag.api.lightrag_server import create_app
+            sys.argv = ["madrag-server", "--api-prefix", prefix]
+            from madrag.api.config import parse_args
+            from madrag.api.madrag_server import create_app
 
             args = parse_args()
-            with patch("lightrag.api.lightrag_server.LightRAG") as mock_rag:
+            with patch("madrag.api.madrag_server.madRAG") as mock_rag:
                 mock_rag.return_value = MagicMock()
                 return create_app(args)
         finally:
@@ -605,37 +605,37 @@ class TestUvicornRootPathSemantics:
     def test_launcher_does_not_pass_root_path_to_uvicorn(self, monkeypatch, tmp_path):
         """Guard against re-adding root_path to the uvicorn launcher kwargs.
 
-        Mocks uvicorn.run and exercises lightrag_server.main() far enough
+        Mocks uvicorn.run and exercises madrag_server.main() far enough
         to capture the config dict, then asserts root_path is absent.
         """
         monkeypatch.setenv("LIGHTRAG_API_PREFIX", "/site01")
-        monkeypatch.setattr(sys, "argv", ["lightrag-server"])
+        monkeypatch.setattr(sys, "argv", ["madrag-server"])
 
-        from lightrag.api import lightrag_server
+        from madrag.api import madrag_server
 
         captured = {}
 
         def fake_run(**kwargs):
             captured.update(kwargs)
 
-        monkeypatch.setattr(lightrag_server, "uvicorn", MagicMock(run=fake_run))
-        monkeypatch.setattr(lightrag_server, "check_env_file", lambda: True)
+        monkeypatch.setattr(madrag_server, "uvicorn", MagicMock(run=fake_run))
+        monkeypatch.setattr(madrag_server, "check_env_file", lambda: True)
         monkeypatch.setattr(
-            lightrag_server, "check_and_install_dependencies", lambda: None
+            madrag_server, "check_and_install_dependencies", lambda: None
         )
-        monkeypatch.setattr(lightrag_server, "configure_logging", lambda: None)
-        monkeypatch.setattr(lightrag_server, "update_uvicorn_mode_config", lambda: None)
-        monkeypatch.setattr(lightrag_server, "display_splash_screen", lambda *_: None)
-        with patch("lightrag.api.lightrag_server.LightRAG") as mock_rag:
+        monkeypatch.setattr(madrag_server, "configure_logging", lambda: None)
+        monkeypatch.setattr(madrag_server, "update_uvicorn_mode_config", lambda: None)
+        monkeypatch.setattr(madrag_server, "display_splash_screen", lambda *_: None)
+        with patch("madrag.api.madrag_server.madRAG") as mock_rag:
             mock_rag.return_value = MagicMock()
             # Re-parse args under the patched env so global_args picks up the prefix.
-            from lightrag.api.config import parse_args, global_args as _ga
+            from madrag.api.config import parse_args, global_args as _ga
 
             new_args = parse_args()
             for attr in vars(new_args):
                 setattr(_ga, attr, getattr(new_args, attr))
 
-            lightrag_server.main()
+            madrag_server.main()
 
         assert "root_path" not in captured, (
             "uvicorn_config must not include root_path; rely on FastAPI's "
@@ -650,6 +650,6 @@ class TestUvicornRootPathSemantics:
         root_path via CONFIG_KWARGS would re-introduce the same
         path-doubling regression in worker processes.
         """
-        from lightrag.api import gunicorn_config
+        from madrag.api import gunicorn_config
 
         assert gunicorn_config.worker_class == "uvicorn.workers.UvicornWorker"

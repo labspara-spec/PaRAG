@@ -1,16 +1,16 @@
-# LightRAG Server and WebUI
+# madRAG Server and WebUI
 
-The LightRAG Server is designed to provide a Web UI and API support. The Web UI facilitates document indexing, knowledge graph exploration, and a simple RAG query interface.
+The madRAG Server is designed to provide a Web UI and API support. The Web UI facilitates document indexing, knowledge graph exploration, and a simple RAG query interface.
 
-![image-20250323122538997](./LightRAG-API-Server.assets/image-20250323122538997.png)
+![image-20250323122538997](./madRAG-API-Server.assets/image-20250323122538997.png)
 
-![image-20250323122754387](./LightRAG-API-Server.assets/image-20250323122754387.png)
+![image-20250323122754387](./madRAG-API-Server.assets/image-20250323122754387.png)
 
-![image-20250323123011220](./LightRAG-API-Server.assets/image-20250323123011220.png)
+![image-20250323123011220](./madRAG-API-Server.assets/image-20250323123011220.png)
 
 ## Upgrading from v1.4.16 to v1.5.0rc2
 
-The v1.5.0rc2 release adds the new file-processing pipeline, parser routing, multimodal analysis, role-specific LLM/VLM configuration, JSON entity extraction, and several provider/storage changes. Review the [v1.5.0rc2 release notes](https://github.com/HKUDS/LightRAG/releases/tag/v1.5.0rc2) before upgrading a production instance.
+The v1.5.0rc2 release adds the new file-processing pipeline, parser routing, multimodal analysis, role-specific LLM/VLM configuration, JSON entity extraction, and several provider/storage changes. Review the [v1.5.0rc2 release notes](https://github.com/HKUDS/madRAG/releases/tag/v1.5.0rc2) before upgrading a production instance.
 
 - To keep the old file-processing behavior while upgrading the server, set:
 
@@ -20,7 +20,7 @@ LIGHTRAG_PARSER=*:legacy-F
 
 - `ENTITY_TYPES` is no longer supported. Use `ENTITY_TYPE_PROMPT_FILE` instead, with a YAML profile stored under `PROMPT_DIR/entity_type` (`PROMPT_DIR` defaults to `./prompts`). A sample template is available at `prompts/samples/entity_type_prompt.sample.yml`.
 - If you use OpenSearch storage and the cluster is older than OpenSearch 3.3.0, upgrade OpenSearch before enabling the v1.5 storage path and validate existing indices. For new deployments, use OpenSearch 3.3.0 or later.
-- Changing the embedding model, embedding dimension, asymmetric embedding behavior, or query/document prefixes changes vector semantics. Clear the affected LightRAG workspace/vector data and re-index source files.
+- Changing the embedding model, embedding dimension, asymmetric embedding behavior, or query/document prefixes changes vector semantics. Clear the affected madRAG workspace/vector data and re-index source files.
 - Changing parser routing (`LIGHTRAG_PARSER`) or filename hints affects newly uploaded files. To switch an existing document to another parser engine, delete that document and upload it again.
 - Changing chunker settings (`CHUNK_*`) affects documents enqueued after the server restarts. Reprocess older documents if you want their stored `chunk_options` snapshot to match the new settings.
 - Enabling multimodal options (`i/t/e`) requires parsed sidecars plus `VLM_PROCESS_ENABLE=true`. Existing documents can be reprocessed to run VLM analysis on available sidecars; switching extraction engines still requires delete + re-upload.
@@ -32,23 +32,23 @@ LIGHTRAG_PARSER=*:legacy-F
 * Install from PyPI
 
 ```bash
-### Install LightRAG Server as tool using uv (recommended)
-uv tool install "lightrag-hku[api]"
+### Install madRAG Server as tool using uv (recommended)
+uv tool install "madrag-hku[api]"
 
 ### Or using pip
 # python -m venv .venv
 # source .venv/bin/activate  # Windows: .venv\Scripts\activate
-# pip install "lightrag-hku[api]"
+# pip install "madrag-hku[api]"
 ```
 
 * Installation from Source
 
 ```bash
 # Clone the repository
-git clone https://github.com/HKUDS/lightrag.git
+git clone https://github.com/HKUDS/madrag.git
 
 # Change to the repository directory
-cd lightrag
+cd madrag
 
 # Bootstrap the development environment (recommended)
 make dev
@@ -71,17 +71,17 @@ source .venv/bin/activate  # Activate the virtual environment (Linux/macOS)
 # pip install -e ".[test,offline]"
 
 # Build front-end artifacts
-cd lightrag_webui
+cd madrag_webui
 bun install --frozen-lockfile
 bun run build
 cd ..
 ```
 
-### Before Starting LightRAG Server
+### Before Starting madRAG Server
 
-LightRAG necessitates the integration of both an LLM (Large Language Model) and an Embedding Model to effectively execute document indexing and querying operations. Prior to the initial deployment of the LightRAG server, it is essential to configure the settings for both the LLM and the Embedding Model.
+madRAG necessitates the integration of both an LLM (Large Language Model) and an Embedding Model to effectively execute document indexing and querying operations. Prior to the initial deployment of the madRAG server, it is essential to configure the settings for both the LLM and the Embedding Model.
 
-LightRAG supports these LLM backends:
+madRAG supports these LLM backends:
 
 * lollms
 * openai or openai compatible
@@ -89,7 +89,7 @@ LightRAG supports these LLM backends:
 * bedrock
 * gemini
 
-LightRAG supports these embedding backends:
+madRAG supports these embedding backends:
 
 * lollms
 * openai or openai compatible
@@ -99,7 +99,7 @@ LightRAG supports these embedding backends:
 * gemini
 * voyageai
 
-It is recommended to use environment variables to configure the LightRAG Server. There is an example environment variable file named `env.example` in the root directory of the project. Please copy this file to the startup directory and rename it to `.env`. After that, you can modify the parameters related to the LLM and Embedding models in the `.env` file. It is important to note that the LightRAG Server will load the environment variables from `.env` into the system environment variables each time it starts. **LightRAG Server will prioritize the settings in the system environment variables to .env file**.
+It is recommended to use environment variables to configure the madRAG Server. There is an example environment variable file named `env.example` in the root directory of the project. Please copy this file to the startup directory and rename it to `.env`. After that, you can modify the parameters related to the LLM and Embedding models in the `.env` file. It is important to note that the madRAG Server will load the environment variables from `.env` into the system environment variables each time it starts. **madRAG Server will prioritize the settings in the system environment variables to .env file**.
 
 > Since VS Code with the Python extension may automatically load the .env file in the integrated terminal, please open a new terminal session after each modification to the .env file.
 
@@ -109,11 +109,11 @@ Here are some examples of common settings for LLM and Embedding models:
 
 > When targeting Google Gemini, set `LLM_BINDING=gemini`, choose a model such as `LLM_MODEL=gemini-flash-latest`, and provide your Gemini key via `LLM_BINDING_API_KEY` (or `GEMINI_API_KEY`).
 
-> **Important Note**: The embedding model and asymmetric embedding configuration must be determined before document indexing, and the same settings must be used during the query phase. For certain storage solutions (e.g., PostgreSQL), the vector dimension must be defined upon initial table creation. When changing the embedding model, embedding dimension, `EMBEDDING_ASYMMETRIC`, query/document prefixes, or provider task behavior, clear the existing LightRAG workspace/vector data and re-index the source files.
+> **Important Note**: The embedding model and asymmetric embedding configuration must be determined before document indexing, and the same settings must be used during the query phase. For certain storage solutions (e.g., PostgreSQL), the vector dimension must be defined upon initial table creation. When changing the embedding model, embedding dimension, `EMBEDDING_ASYMMETRIC`, query/document prefixes, or provider task behavior, clear the existing madRAG workspace/vector data and re-index the source files.
 
 #### Asymmetric Embedding Configuration
 
-LightRAG uses symmetric embeddings by default. Query/document asymmetric embeddings are enabled only when `EMBEDDING_ASYMMETRIC=true` is explicitly set.
+madRAG uses symmetric embeddings by default. Query/document asymmetric embeddings are enabled only when `EMBEDDING_ASYMMETRIC=true` is explicitly set.
 
 - Provider task bindings such as `jina`, `gemini`, and `voyageai` use provider parameters (`task` / `task_type` / `input_type`) and should not use query/document prefixes.
 - Prefix-based bindings such as `openai` and `azure_openai` require both `EMBEDDING_QUERY_PREFIX` and `EMBEDDING_DOCUMENT_PREFIX`. Use `NO_PREFIX` for a side that should intentionally have no prefix.
@@ -136,21 +136,21 @@ For a full description of every target and what each flow does, see [docs/Intera
 The setup wizards update configuration only; run `make env-security-check` separately to audit the
 current `.env` for security risks before deployment.
 
-### Starting LightRAG Server
+### Starting madRAG Server
 
-The LightRAG Server supports two operational modes:
+The madRAG Server supports two operational modes:
 * The simple and efficient Uvicorn mode:
 
 ```
-lightrag-server
+madrag-server
 ```
 * The multiprocess Gunicorn + Uvicorn mode (production mode, not supported on Windows environments):
 
 ```
-lightrag-gunicorn --workers 4
+madrag-gunicorn --workers 4
 ```
 
-When starting LightRAG, the current working directory must contain the `.env` configuration file. **It is intentionally designed that the `.env` file must be placed in the startup directory**. The purpose of this is to allow users to launch multiple LightRAG instances simultaneously and configure different `.env` files for different instances. **After modifying the `.env` file, you need to reopen the terminal for the new settings to take effect.** This is because each time LightRAG Server starts, it loads the environment variables from the `.env` file into the system environment variables, and system environment variables have higher precedence.
+When starting madRAG, the current working directory must contain the `.env` configuration file. **It is intentionally designed that the `.env` file must be placed in the startup directory**. The purpose of this is to allow users to launch multiple madRAG instances simultaneously and configure different `.env` files for different instances. **After modifying the `.env` file, you need to reopen the terminal for the new settings to take effect.** This is because each time madRAG Server starts, it loads the environment variables from the `.env` file into the system environment variables, and system environment variables have higher precedence.
 
 During startup, configurations in the `.env` file can be overridden by command-line parameters. Common command-line parameters include:
 
@@ -160,40 +160,40 @@ During startup, configurations in the `.env` file can be overridden by command-l
 - `--log-level`: Log level (default: INFO)
 - `--working-dir`: Database persistence directory (default: ./rag_storage)
 - `--input-dir`: Directory for uploaded files (default: ./inputs)
-- `--workspace`: Workspace name, used to logically isolate data between multiple LightRAG instances (default: empty)
+- `--workspace`: Workspace name, used to logically isolate data between multiple madRAG instances (default: empty)
 - `--api-prefix`: Reverse-proxy path prefix exposed to browsers, also configurable with `LIGHTRAG_API_PREFIX`
 - `--rerank-binding`: Rerank provider (`null`, `cohere`, `jina`, or `aliyun`)
 
 ### Path Prefix and Multi-Site WebUI
 
-Set `LIGHTRAG_API_PREFIX` or `--api-prefix` when one host serves multiple LightRAG instances behind a reverse proxy that strips a site prefix before forwarding to the backend:
+Set `LIGHTRAG_API_PREFIX` or `--api-prefix` when one host serves multiple madRAG instances behind a reverse proxy that strips a site prefix before forwarding to the backend:
 
 ```bash
 LIGHTRAG_API_PREFIX=/site01
-lightrag-server --port 9621
+madrag-server --port 9621
 ```
 
 The backend passes this value to FastAPI as `root_path` and injects the same runtime prefix into the WebUI. The WebUI is always mounted at `/webui` inside the server, so one frontend build can serve any prefix. See [Single-Server Multi-Site Deployment](./MultiSiteDeployment.md) for full Nginx, Docker, and Kubernetes examples.
 
-### Launching LightRAG Server with Docker
+### Launching madRAG Server with Docker
 
-Using Docker Compose is the most convenient way to deploy and run the LightRAG Server.
+Using Docker Compose is the most convenient way to deploy and run the madRAG Server.
 
 - Create a project directory.
-- Copy the `docker-compose.yml` file from the LightRAG repository into your project directory.
+- Copy the `docker-compose.yml` file from the madRAG repository into your project directory.
 - Prepare the `.env` file: Duplicate the sample file [`env.example`](https://ai.znipower.com:5013/c/env.example)to create a customized `.env` file, and configure the LLM and embedding parameters according to your specific requirements.
-- Start the LightRAG Server with the following command:
+- Start the madRAG Server with the following command:
 
 ```shell
 docker compose up
 # If you want the program to run in the background after startup, add the -d parameter at the end of the command.
 ```
 
-You can get the official docker compose file from here: [docker-compose.yml](https://raw.githubusercontent.com/HKUDS/LightRAG/refs/heads/main/docker-compose.yml). For historical versions of LightRAG docker images, visit this link: [LightRAG Docker Images](https://github.com/HKUDS/LightRAG/pkgs/container/lightrag). For more details about docker deployment, please refer to [DockerDeployment.md](./DockerDeployment.md).
+You can get the official docker compose file from here: [docker-compose.yml](https://raw.githubusercontent.com/HKUDS/madRAG/refs/heads/main/docker-compose.yml). For historical versions of madRAG docker images, visit this link: [madRAG Docker Images](https://github.com/HKUDS/madRAG/pkgs/container/madrag). For more details about docker deployment, please refer to [DockerDeployment.md](./DockerDeployment.md).
 
 ### Progressive Setup Recipes
 
-If you are new to LightRAG, start with the smallest working configuration and add capabilities only after the previous step is healthy:
+If you are new to madRAG, start with the smallest working configuration and add capabilities only after the previous step is healthy:
 
 1. Minimal Docker run with hosted LLM and embedding models
 2. Add reranking to improve query quality
@@ -211,7 +211,7 @@ Use this path when you want the WebUI and API running first, with no external da
 ### Server Configuration
 ###########################
 PORT=9621
-WEBUI_TITLE='My First LightRAG KB'
+WEBUI_TITLE='My First madRAG KB'
 WEBUI_DESCRIPTION='Simple and Fast Graph Based RAG System'
 
 ########################################
@@ -285,11 +285,11 @@ RERANK_BINDING_HOST=http://localhost:8000/rerank
 RERANK_BINDING_API_KEY=your_rerank_api_key_here
 ```
 
-If LightRAG itself runs inside Docker and the reranker runs on the host, use a host-reachable address such as `host.docker.internal` instead of `localhost`. If the setup wizard creates the vLLM service, it injects the internal Compose service URL into `docker-compose.final.yml` for you.
+If madRAG itself runs inside Docker and the reranker runs on the host, use a host-reachable address such as `host.docker.internal` instead of `localhost`. If the setup wizard creates the vLLM service, it injects the internal Compose service URL into `docker-compose.final.yml` for you.
 
 #### 3. Add Multimodal Parsing With MinerU Official API
 
-Use this after the basic document flow works. The MinerU official API avoids running a local parser service, but `MINERU_API_TOKEN` must be configured before the LightRAG server starts. The VLM role must use a provider/model that supports image input.
+Use this after the basic document flow works. The MinerU official API avoids running a local parser service, but `MINERU_API_TOKEN` must be configured before the madRAG server starts. The VLM role must use a provider/model that supports image input.
 
 ```bash
 LIGHTRAG_PARSER=*:native-iteP,*:mineru-iteP,*:legacy-R
@@ -357,7 +357,7 @@ Important rules before processing production data:
 
 ### Nginx Reverse Proxy Configuration
 
-When using Nginx as a reverse proxy in front of LightRAG Server, you need to configure `client_max_body_size` for the `/documents/upload` endpoint to handle large file uploads. Without this configuration, Nginx will reject files larger than 1MB (the default limit) with a `413 Request Entity Too Large` error before the request reaches LightRAG.
+When using Nginx as a reverse proxy in front of madRAG Server, you need to configure `client_max_body_size` for the `/documents/upload` endpoint to handle large file uploads. Without this configuration, Nginx will reject files larger than 1MB (the default limit) with a `413 Request Entity Too Large` error before the request reaches madRAG.
 
 **Recommended Configuration:**
 
@@ -413,38 +413,38 @@ server {
 
 1. **Global Limit (8MB)**: Sufficient for LLM queries with long conversation history and context (128K tokens ≈ 512KB + JSON overhead).
 2. **Upload Endpoint (100MB)**: Must match or exceed `MAX_UPLOAD_SIZE` in your `.env` file. The default `MAX_UPLOAD_SIZE` is 100MB.
-3. **Streaming Endpoints**: Disable gzip compression (`gzip off`) for streaming endpoints to ensure real-time response delivery. LightRAG automatically sets `X-Accel-Buffering: no` header to disable response buffering.
+3. **Streaming Endpoints**: Disable gzip compression (`gzip off`) for streaming endpoints to ensure real-time response delivery. madRAG automatically sets `X-Accel-Buffering: no` header to disable response buffering.
 4. **Timeout Settings**: Large file uploads and LLM generation require longer timeouts; adjust `proxy_read_timeout` and `proxy_send_timeout` accordingly.
 5. **Size Validation Layers**:
    - Nginx validates the `Content-Length` header first
-   - LightRAG performs streaming validation during upload
+   - madRAG performs streaming validation during upload
    - Setting appropriate limits at both layers ensures better error messages and security
 
 ### Offline Deployment
 
-Official LightRAG Docker images are fully compatible with offline or air-gapped environments. If you want to build up you own  offline enviroment, please refer to [Offline Deployment Guide](./OfflineDeployment.md).
+Official madRAG Docker images are fully compatible with offline or air-gapped environments. If you want to build up you own  offline enviroment, please refer to [Offline Deployment Guide](./OfflineDeployment.md).
 
-### Starting Multiple LightRAG Instances
+### Starting Multiple madRAG Instances
 
-There are two ways to start multiple LightRAG instances. The first way is to configure a completely independent working environment for each instance. This requires creating a separate working directory for each instance and placing a dedicated `.env` configuration file in that directory. The server listening ports in the configuration files of different instances cannot be the same. Then, you can start the service by running `lightrag-server` in the working directory.
+There are two ways to start multiple madRAG instances. The first way is to configure a completely independent working environment for each instance. This requires creating a separate working directory for each instance and placing a dedicated `.env` configuration file in that directory. The server listening ports in the configuration files of different instances cannot be the same. Then, you can start the service by running `madrag-server` in the working directory.
 
-The second way is for all instances to share the same set of `.env` configuration files, and then use command-line arguments to specify different server listening ports and workspaces for each instance. You can start multiple LightRAG instances in the same working directory with different command-line arguments. For example:
+The second way is for all instances to share the same set of `.env` configuration files, and then use command-line arguments to specify different server listening ports and workspaces for each instance. You can start multiple madRAG instances in the same working directory with different command-line arguments. For example:
 
 ```
 # Start instance 1
-lightrag-server --port 9621 --workspace space1
+madrag-server --port 9621 --workspace space1
 
 # Start instance 2
-lightrag-server --port 9622 --workspace space2
+madrag-server --port 9622 --workspace space2
 ```
 
 The purpose of a workspace is to achieve data isolation between different instances. Therefore, the `workspace` parameter must be different for different instances; otherwise, it will lead to data confusion and corruption.
 
-When launching multiple LightRAG instances via Docker Compose, simply specify unique `WORKSPACE` and `PORT` environment variables for each container within your `docker-compose.yml`. Even if all instances share a common `.env` file, the container-specific environment variables defined in Compose will take precedence, ensuring independent configurations for each instance.
+When launching multiple madRAG instances via Docker Compose, simply specify unique `WORKSPACE` and `PORT` environment variables for each container within your `docker-compose.yml`. Even if all instances share a common `.env` file, the container-specific environment variables defined in Compose will take precedence, ensuring independent configurations for each instance.
 
-### Data Isolation Between LightRAG Instances
+### Data Isolation Between madRAG Instances
 
-Configuring an independent working directory and a dedicated `.env` configuration file for each instance can generally ensure that locally persisted files in the in-memory database are saved in their respective working directories, achieving data isolation. By default, LightRAG uses all in-memory databases, and this method of data isolation is sufficient. However, if you are using an external database, and different instances access the same database instance, you need to use workspaces to achieve data isolation; otherwise, the data of different instances will conflict and be destroyed.
+Configuring an independent working directory and a dedicated `.env` configuration file for each instance can generally ensure that locally persisted files in the in-memory database are saved in their respective working directories, achieving data isolation. By default, madRAG uses all in-memory databases, and this method of data isolation is sufficient. However, if you are using an external database, and different instances access the same database instance, you need to use workspaces to achieve data isolation; otherwise, the data of different instances will conflict and be destroyed.
 
 The command-line `workspace` argument and the `WORKSPACE` environment variable in the `.env` file can both be used to specify the workspace name for the current instance, with the command-line argument having higher priority. Here is how workspaces are implemented for different types of storage:
 
@@ -459,9 +459,9 @@ To maintain compatibility with legacy data, the default workspace for PostgreSQL
 
 ### Multiple workers for Gunicorn + Uvicorn
 
-The LightRAG Server can operate in the `Gunicorn + Uvicorn` preload mode. Gunicorn's multiple worker (multiprocess) capability prevents document indexing tasks from blocking RAG queries. CPU-heavy document extraction tools should be deployed as external services so they do not block the API process.
+The madRAG Server can operate in the `Gunicorn + Uvicorn` preload mode. Gunicorn's multiple worker (multiprocess) capability prevents document indexing tasks from blocking RAG queries. CPU-heavy document extraction tools should be deployed as external services so they do not block the API process.
 
-Though LightRAG Server uses one worker to process the document indexing pipeline, with the async task support of Uvicorn, multiple files can be processed in parallel. The bottleneck of document indexing speed mainly lies with the LLM. If your LLM supports high concurrency, you can accelerate document indexing by increasing the concurrency level of the LLM. Below are several environment variables related to concurrent processing, along with their default values:
+Though madRAG Server uses one worker to process the document indexing pipeline, with the async task support of Uvicorn, multiple files can be processed in parallel. The bottleneck of document indexing speed mainly lies with the LLM. If your LLM supports high concurrency, you can accelerate document indexing by increasing the concurrency level of the LLM. Below are several environment variables related to concurrent processing, along with their default values:
 
 ```
 ### Number of worker processes, not greater than (2 x number_of_cores) + 1
@@ -476,36 +476,36 @@ On macOS, Gunicorn multi-worker mode also requires the Objective-C fork-safety o
 
 ```shell
 export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
-lightrag-gunicorn --workers 2
+madrag-gunicorn --workers 2
 ```
 
-### Install LightRAG as a Linux Service
+### Install madRAG as a Linux Service
 
-Create your service file `lightrag.service` from the sample file: `lightrag.service.example`. Modify the start options the service file:
+Create your service file `madrag.service` from the sample file: `madrag.service.example`. Modify the start options the service file:
 
 ```text
 # Set Enviroment to your Python virtual enviroment
-Environment="PATH=/home/netman/lightrag-xyj/venv/bin"
-WorkingDirectory=/home/netman/lightrag-xyj
-# ExecStart=/home/netman/lightrag-xyj/venv/bin/lightrag-server
-ExecStart=/home/netman/lightrag-xyj/venv/bin/lightrag-gunicorn
+Environment="PATH=/home/netman/madrag-xyj/venv/bin"
+WorkingDirectory=/home/netman/madrag-xyj
+# ExecStart=/home/netman/madrag-xyj/venv/bin/madrag-server
+ExecStart=/home/netman/madrag-xyj/venv/bin/madrag-gunicorn
 ```
 
-> The ExecStart command must be either `lightrag-gunicorn` or `lightrag-server`; no wrapper scripts are allowed. This is because service termination requires the main process to be one of these two executables.
+> The ExecStart command must be either `madrag-gunicorn` or `madrag-server`; no wrapper scripts are allowed. This is because service termination requires the main process to be one of these two executables.
 
-Install LightRAG service. If your system is Ubuntu, the following commands will work:
+Install madRAG service. If your system is Ubuntu, the following commands will work:
 
 ```shell
-sudo cp lightrag.service /etc/systemd/system/
+sudo cp madrag.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl start lightrag.service
-sudo systemctl status lightrag.service
-sudo systemctl enable lightrag.service
+sudo systemctl start madrag.service
+sudo systemctl status madrag.service
+sudo systemctl enable madrag.service
 ```
 
 ## API Key and Authentication
 
-By default, the LightRAG Server can be accessed without any authentication. We can configure the server with an API Key or account credentials to secure it.
+By default, the madRAG Server can be accessed without any authentication. We can configure the server with an API Key or account credentials to secure it.
 
 * API Key:
 
@@ -516,7 +516,7 @@ WHITELIST_PATHS=/health,/api/*
 
 > Health check endpoints are excluded from API Key check by default.
 
-The API key is passed using the request header `X-API-Key`. Below is an example of accessing the LightRAG Server via API:
+The API key is passed using the request header `X-API-Key`. Below is an example of accessing the madRAG Server via API:
 
 ```
 curl -X 'POST' \
@@ -528,7 +528,7 @@ curl -X 'POST' \
 
 * Account credentials (the Web UI requires login before access can be granted):
 
-LightRAG API Server implements JWT-based authentication using the HS256 algorithm. To enable secure access control, the following environment variables are required:
+madRAG API Server implements JWT-based authentication using the HS256 algorithm. To enable secure access control, the following environment variables are required:
 
 ```bash
 # For jwt auth
@@ -540,7 +540,7 @@ TOKEN_EXPIRE_HOURS=4
 Passwords without a prefix are treated as plaintext. To store a bcrypt password, prefix the generated hash with `{bcrypt}`. The easiest way to generate a value that can be pasted directly into `AUTH_ACCOUNTS` is:
 
 ```bash
-lightrag-hash-password --username admin
+madrag-hash-password --username admin
 ```
 
 The command prompts for the password and prints an `admin:{bcrypt}...` entry ready to paste into `.env`.
@@ -555,9 +555,9 @@ Azure OpenAI API can be created using the following commands in Azure CLI (you n
 
 ```bash
 # Change the resource group name, location, and OpenAI resource name as needed
-RESOURCE_GROUP_NAME=LightRAG
+RESOURCE_GROUP_NAME=madRAG
 LOCATION=swedencentral
-RESOURCE_NAME=LightRAG-OpenAI
+RESOURCE_NAME=madRAG-OpenAI
 
 az login
 az group create --name $RESOURCE_GROUP_NAME --location $LOCATION
@@ -584,7 +584,7 @@ EMBEDDING_BINDING=azure_openai
 EMBEDDING_MODEL=your-embedding-deployment-name
 ```
 
-## LightRAG Server Configuration in Detail
+## madRAG Server Configuration in Detail
 
 The API Server can be configured in two ways (highest priority first):
 
@@ -595,7 +595,7 @@ Most of the configurations come with default settings; check out the details in 
 
 ### LLM and Embedding Backend Supported
 
-LightRAG supports binding to various LLM backends:
+madRAG supports binding to various LLM backends:
 
 * openai (including openai compatible)
 * azure_openai
@@ -603,7 +603,7 @@ LightRAG supports binding to various LLM backends:
 * bedrock
 * gemini
 
-LightRAG supports binding to various Embedding backends:
+madRAG supports binding to various Embedding backends:
 
 * lollms
 * openai (including openai compatible)
@@ -631,9 +631,9 @@ Asymmetric embedding is explicit opt-in. Set `EMBEDDING_ASYMMETRIC=true` only wh
 For LLM and embedding configuration examples, please refer to the `env.example` file in the project's root directory. To view the complete list of configurable options for supported LLM interfaces, use the following commands:
 
 ```
-lightrag-server --llm-binding openai --help
-lightrag-server --llm-binding gemini --help
-lightrag-server --embedding-binding gemini --help
+madrag-server --llm-binding openai --help
+madrag-server --llm-binding gemini --help
+madrag-server --embedding-binding gemini --help
 ```
 
 > Please use OpenAI-compatible method to access LLMs deployed by OpenRouter or vLLM/SGLang. You can pass additional parameters to OpenRouter or vLLM/SGLang through the `OPENAI_LLM_EXTRA_BODY` environment variable to disable reasoning mode or achieve other personalized controls.
@@ -713,7 +713,7 @@ Example:
 ```bash
 ENTITY_EXTRACTION_USE_JSON=true
 ENTITY_TYPE_PROMPT_FILE=entity_type_prompt.yml
-PROMPT_DIR=/opt/lightrag/prompts
+PROMPT_DIR=/opt/madrag/prompts
 MAX_EXTRACT_INPUT_TOKENS=20480
 MAX_EXTRACTION_RECORDS=100
 MAX_EXTRACTION_ENTITIES=40
@@ -724,16 +724,16 @@ If an old `.env` still contains `ENTITY_TYPES`, remove it before startup. The se
 
 ### Storage Types Supported
 
-LightRAG uses 4 types of storage for different purposes:
+madRAG uses 4 types of storage for different purposes:
 
 * KV_STORAGE: llm response cache, text chunks, document information
 * VECTOR_STORAGE: entities vectors, relation vectors, chunks vectors
 * GRAPH_STORAGE: entity relation graph
 * DOC_STATUS_STORAGE: document indexing status
 
-LightRAG Server offers various storage implementations, with the default being an in-memory database that persists data to the WORKING_DIR directory. Additionally, LightRAG supports a wide range of storage solutions including PostgreSQL, MongoDB, FAISS, Milvus, Qdrant, Neo4j, Memgraph, Redis, and OpenSearch. For detailed information on supported storage options, please refer to the storage section in the README.md file located in the root directory.
+madRAG Server offers various storage implementations, with the default being an in-memory database that persists data to the WORKING_DIR directory. Additionally, madRAG supports a wide range of storage solutions including PostgreSQL, MongoDB, FAISS, Milvus, Qdrant, Neo4j, Memgraph, Redis, and OpenSearch. For detailed information on supported storage options, please refer to the storage section in the README.md file located in the root directory.
 
-**Milvus Index Configuration:** LightRAG now supports configurable index types for Milvus vector storage (AUTOINDEX, HNSW, HNSW_SQ, IVF_FLAT, etc.) through environment variables. HNSW_SQ requires Milvus 2.6.8+ and provides significant memory savings. See the "Using Milvus for Vector Storage" section in the main README.md for complete configuration options.
+**Milvus Index Configuration:** madRAG now supports configurable index types for Milvus vector storage (AUTOINDEX, HNSW, HNSW_SQ, IVF_FLAT, etc.) through environment variables. HNSW_SQ requires Milvus 2.6.8+ and provides significant memory savings. See the "Using Milvus for Vector Storage" section in the main README.md for complete configuration options.
 
 You can select the storage implementation by configuring environment variables. For instance, prior to the initial launch of the API server, you can set the following environment variable to specify your desired storage implementation:
 
@@ -744,13 +744,13 @@ LIGHTRAG_GRAPH_STORAGE=PGGraphStorage
 LIGHTRAG_DOC_STATUS_STORAGE=PGDocStatusStorage
 ```
 
-You cannot change storage implementation selection after adding documents to LightRAG. Data migration from one storage implementation to another is not supported yet. For further information, please read the sample `.env.example` file.
+You cannot change storage implementation selection after adding documents to madRAG. Data migration from one storage implementation to another is not supported yet. For further information, please read the sample `.env.example` file.
 
 ### LLM Cache Migration Between Storage Types
 
-When switching the storage implementation in LightRAG, the LLM cache can be migrated from the existing storage to the new one. Subsequently, when re-uploading files to the new storage, the pre-existing LLM cache will significantly accelerate file processing. For detailed instructions on using the LLM cache migration tool, please refer to [README_MIGRATE_LLM_CACHE.md](../lightrag/tools/README_MIGRATE_LLM_CACHE.md)
+When switching the storage implementation in madRAG, the LLM cache can be migrated from the existing storage to the new one. Subsequently, when re-uploading files to the new storage, the pre-existing LLM cache will significantly accelerate file processing. For detailed instructions on using the LLM cache migration tool, please refer to [README_MIGRATE_LLM_CACHE.md](../madrag/tools/README_MIGRATE_LLM_CACHE.md)
 
-### LightRAG API Server Command Line Options
+### madRAG API Server Command Line Options
 
 | Parameter | Default | Description |
 | --- | --- | --- |
@@ -775,7 +775,7 @@ When switching the storage implementation in LightRAG, the LLM cache can be migr
 
 ### Reranking Configuration
 
-Reranking query-recalled chunks can significantly enhance retrieval quality by re-ordering documents based on an optimized relevance scoring model. LightRAG currently supports the following rerank providers:
+Reranking query-recalled chunks can significantly enhance retrieval quality by re-ordering documents based on an optimized relevance scoring model. madRAG currently supports the following rerank providers:
 
 - **Cohere / vLLM**: Offers full API integration with Cohere AI's `v2/rerank` endpoint. As vLLM provides a Cohere-compatible reranker API, all reranker models deployed via vLLM are also supported.
 - **Jina AI**: Provides complete implementation compatibility with all Jina rerank models.
@@ -835,7 +835,7 @@ The `include_chunk_content` parameter (default: `false`) controls whether the ac
 
 ```json
 {
-  "query": "What is LightRAG?",
+  "query": "What is madRAG?",
   "mode": "mix",
   "include_references": true,
   "include_chunk_content": true
@@ -846,13 +846,13 @@ The `include_chunk_content` parameter (default: `false`) controls whether the ac
 
 ```json
 {
-  "response": "LightRAG is a graph-based RAG system...",
+  "response": "madRAG is a graph-based RAG system...",
   "references": [
     {
       "reference_id": "1",
       "file_path": "/documents/intro.md",
       "content": [
-        "LightRAG is a retrieval-augmented generation system that combines knowledge graphs with vector similarity search...",
+        "madRAG is a retrieval-augmented generation system that combines knowledge graphs with vector similarity search...",
         "The system uses a dual-indexing approach with both vector embeddings and graph structures for enhanced retrieval..."
       ]
     },
@@ -932,7 +932,7 @@ EMBEDDING_BINDING_API_KEY=your-api-key
 
 ### For JWT Auth
 # AUTH_ACCOUNTS='admin:{bcrypt}$2b$12$replace-with-generated-hash,user1:pass456'
-# TOKEN_SECRET=your-key-for-LightRAG-API-Server-xxx
+# TOKEN_SECRET=your-key-for-madRAG-API-Server-xxx
 # TOKEN_EXPIRE_HOURS=48
 
 # LIGHTRAG_API_KEY=your-secure-api-key-here-123
@@ -988,7 +988,7 @@ Supported engines:
 | Engine | Use case |
 | --- | --- |
 | `legacy` | Original extraction behavior. Good for compatibility and simple text-like files. |
-| `native` | Built-in structured parser, currently focused on `.docx` and LightRAG Document sidecars. |
+| `native` | Built-in structured parser, currently focused on `.docx` and madRAG Document sidecars. |
 | `mineru` | External MinerU parser for PDFs, Office files, and images. Requires `MINERU_API_MODE` plus `MINERU_LOCAL_ENDPOINT` or `MINERU_API_TOKEN`. |
 | `docling` | External docling-serve parser for PDFs, Office files, Markdown/HTML, and images. Requires `DOCLING_ENDPOINT`. |
 
@@ -1015,7 +1015,7 @@ Processing options are appended after the engine with a hyphen, or supplied alon
 | `F` | Fixed token chunking, the legacy chunking method |
 | `R` | Recursive character chunking with configurable separator cascade |
 | `V` | Semantic vector chunking; oversize chunks are re-split by `R` |
-| `P` | Paragraph semantic chunking for structured LightRAG Document content; falls back to `R` when structured content is unavailable |
+| `P` | Paragraph semantic chunking for structured madRAG Document content; falls back to `R` when structured content is unavailable |
 
 At most one of `F`, `R`, `V`, and `P` should be selected for a file. Chunker parameters are configured with `CHUNK_SIZE`, `CHUNK_OVERLAP_SIZE`, and strategy-specific variables such as `CHUNK_R_SEPARATORS`, `CHUNK_V_BREAKPOINT_THRESHOLD_TYPE`, `CHUNK_P_SIZE`, and `CHUNK_P_OVERLAP_SIZE`. These values are read at server startup and stored as a per-document `chunk_options` snapshot when a document is enqueued.
 
@@ -1029,7 +1029,7 @@ Uploads and text inserts can be accepted while the processing loop is busy; the 
 
 ## API Endpoints
 
-All supported backends (`lollms`, `openai` / OpenAI-compatible, `azure_openai`, `bedrock`, and `gemini`) expose the same LightRAG REST API surface. When the API Server is running, visit:
+All supported backends (`lollms`, `openai` / OpenAI-compatible, `azure_openai`, `bedrock`, and `gemini`) expose the same madRAG REST API surface. When the API Server is running, visit:
 
 - Swagger UI: http://localhost:9621/docs
 - ReDoc: http://localhost:9621/redoc
@@ -1046,7 +1046,7 @@ The `/health` endpoint reports operational state and selected configuration, inc
 
 ## Asynchronous Document Indexing with Progress Tracking
 
-LightRAG implements asynchronous document indexing to enable frontend monitoring and querying of document processing progress. Upon uploading files or inserting text through designated endpoints, a unique Track ID is returned to facilitate real-time progress monitoring.
+madRAG implements asynchronous document indexing to enable frontend monitoring and querying of document processing progress. Upon uploading files or inserting text through designated endpoints, a unique Track ID is returned to facilitate real-time progress monitoring.
 
 **API Endpoints Supporting Track ID Generation:**
 

@@ -1,5 +1,5 @@
 include requirements.txt
-include lightrag/api/requirements.txt
-recursive-include lightrag/api/webui *
-recursive-include lightrag/api/static *
+include madrag/api/requirements.txt
+recursive-include madrag/api/webui *
+recursive-include madrag/api/static *
 recursive-include prompts/samples *

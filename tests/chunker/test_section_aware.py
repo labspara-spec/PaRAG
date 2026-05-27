@@ -2,8 +2,8 @@
 
 import pytest
 
-from lightrag.chunker import chunking_by_section_aware
-from lightrag.utils import Tokenizer, TokenizerInterface
+from madrag.chunker import chunking_by_section_aware
+from madrag.utils import Tokenizer, TokenizerInterface
 
 
 class _CharTokenizer(TokenizerInterface):

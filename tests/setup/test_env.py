@@ -669,8 +669,8 @@ def test_env_base_flow_preserves_existing_compose_ssl_when_env_paths_are_stale(
         tmp_path / "docker-compose.final.yml",
         [
             "services:",
-            "  lightrag:",
-            "    image: example/lightrag:test",
+            "  madrag:",
+            "    image: example/madrag:test",
             "    environment:",
             '      SSL_CERTFILE: "/app/data/certs/cert.pem"',
             '      SSL_KEYFILE: "/app/data/certs/key.pem"',
@@ -692,7 +692,7 @@ prompt_secret_until_valid_with_default() {{ printf '%s' "$2"; }}
 confirm_default_no() {{ return 1; }}
 confirm_default_yes() {{
   case "$1" in
-    "Run LightRAG Server via Docker?") return 0 ;;
+    "Run madRAG Server via Docker?") return 0 ;;
     *) return 1 ;;
   esac
 }}
@@ -723,8 +723,8 @@ def test_env_base_flow_preserves_existing_storage_images_on_rerun(
         ],
         [
             "services:",
-            "  lightrag:",
-            "    image: example/lightrag:test",
+            "  madrag:",
+            "    image: example/madrag:test",
             "  postgres:",
             "    image: registry.example.com/postgres-for-rag:patched",
             "  neo4j:",
@@ -762,7 +762,7 @@ def test_env_base_flow_backs_up_legacy_generated_compose_before_rewrite(
 ) -> None:
     """env-base should back up the active legacy compose file before regenerating final output."""
     legacy_compose = (
-        "\n".join(["services:", "  lightrag:", "    image: prod/lightrag"]) + "\n"
+        "\n".join(["services:", "  madrag:", "    image: prod/madrag"]) + "\n"
     )
     write_text_lines(
         tmp_path / "env.example",
@@ -803,7 +803,7 @@ prompt_secret_until_valid_with_default() {{
 confirm_default_no() {{ return 1; }}
 confirm_default_yes() {{
   case "$1" in
-    "Run LightRAG Server via Docker?") return 0 ;;
+    "Run madRAG Server via Docker?") return 0 ;;
     *) return 1 ;;
   esac
 }}
@@ -818,7 +818,7 @@ env_base_flow
     ) == legacy_compose
 
 
-def test_env_base_flow_deletes_compose_when_switching_lightrag_to_host(
+def test_env_base_flow_deletes_compose_when_switching_madrag_to_host(
     tmp_path: Path,
 ) -> None:
     """env-base should back up and delete compose when no Docker services remain."""
@@ -826,8 +826,8 @@ def test_env_base_flow_deletes_compose_when_switching_lightrag_to_host(
         "\n".join(
             [
                 "services:",
-                "  lightrag:",
-                "    image: example/lightrag:test",
+                "  madrag:",
+                "    image: example/madrag:test",
                 "  redis:",
                 "    image: redis:latest",
             ]
@@ -873,7 +873,7 @@ prompt_secret_until_valid_with_default() {{
 }}
 confirm_default_no() {{
   case "$1" in
-    "All wizard-managed services have been removed. Remove LightRAG from Docker and switch to host mode?") return 0 ;;
+    "All wizard-managed services have been removed. Remove madRAG from Docker and switch to host mode?") return 0 ;;
     *) return 1 ;;
   esac
 }}
@@ -946,7 +946,7 @@ confirm_default_no() {{
   case "$1" in
     "Run embedding model locally via Docker (vLLM)?") return 1 ;;
     "Enable reranking?") return 1 ;;
-    "Run LightRAG Server via Docker?") return 0 ;;
+    "Run madRAG Server via Docker?") return 0 ;;
     *) return 1 ;;
   esac
 }}
@@ -971,7 +971,7 @@ env_base_flow
         for expected_line in case["env_assertions"]:
             assert expected_line in generated_env
         assert "services:" in generated_compose
-        assert "  lightrag:" in generated_compose
+        assert "  madrag:" in generated_compose
         assert "env_file:" not in generated_compose
 
 
@@ -1303,7 +1303,7 @@ confirm_default_no() {{
   case "$1" in
     "Run embedding model locally via Docker (vLLM)?") return 1 ;;
     "Run rerank service locally via Docker?") return 1 ;;
-    "Run LightRAG Server via Docker?") return 1 ;;
+    "Run madRAG Server via Docker?") return 1 ;;
     *) return 1 ;;
   esac
 }}
@@ -1606,16 +1606,16 @@ collect_postgres_config() {{
   add_docker_service "postgres"
   ENV_VALUES[POSTGRES_HOST]="localhost"
   ENV_VALUES[POSTGRES_PORT]="5432"
-  ENV_VALUES[POSTGRES_USER]="lightrag"
+  ENV_VALUES[POSTGRES_USER]="madrag"
   ENV_VALUES[POSTGRES_PASSWORD]="secret"
-  ENV_VALUES[POSTGRES_DATABASE]="lightrag"
+  ENV_VALUES[POSTGRES_DATABASE]="madrag"
 }}
 validate_required_variables() {{ return 0; }}
 validate_mongo_vector_storage_config() {{ return 0; }}
 validate_sensitive_env_literals() {{ return 0; }}
 confirm_default_yes() {{
   case "$1" in
-    "All wizard-managed services have been removed. Remove LightRAG from Docker and switch to host mode?") return 1 ;;
+    "All wizard-managed services have been removed. Remove madRAG from Docker and switch to host mode?") return 1 ;;
     *) return 0 ;;
   esac
 }}
@@ -1671,7 +1671,7 @@ validate_mongo_vector_storage_config() {{ return 0; }}
 validate_sensitive_env_literals() {{ return 0; }}
 confirm_default_yes() {{
   case "$1" in
-    "All wizard-managed services have been removed. Remove LightRAG from Docker and switch to host mode?") return 1 ;;
+    "All wizard-managed services have been removed. Remove madRAG from Docker and switch to host mode?") return 1 ;;
     *) return 0 ;;
   esac
 }}
@@ -1721,16 +1721,16 @@ select_storage_backends() {{
 collect_postgres_config() {{
   ENV_VALUES[POSTGRES_HOST]="localhost"
   ENV_VALUES[POSTGRES_PORT]="5432"
-  ENV_VALUES[POSTGRES_USER]="lightrag"
+  ENV_VALUES[POSTGRES_USER]="madrag"
   ENV_VALUES[POSTGRES_PASSWORD]="secret"
-  ENV_VALUES[POSTGRES_DATABASE]="lightrag"
+  ENV_VALUES[POSTGRES_DATABASE]="madrag"
 }}
 validate_required_variables() {{ return 0; }}
 validate_mongo_vector_storage_config() {{ return 0; }}
 validate_sensitive_env_literals() {{ return 0; }}
 confirm_default_yes() {{
   case "$1" in
-    "All wizard-managed services have been removed. Remove LightRAG from Docker and switch to host mode?") return 1 ;;
+    "All wizard-managed services have been removed. Remove madRAG from Docker and switch to host mode?") return 1 ;;
     *) return 0 ;;
   esac
 }}
@@ -1780,7 +1780,7 @@ validate_mongo_vector_storage_config() {{ return 0; }}
 validate_sensitive_env_literals() {{ return 0; }}
 confirm_default_yes() {{
   case "$1" in
-    "All wizard-managed services have been removed. Remove LightRAG from Docker and switch to host mode?") return 1 ;;
+    "All wizard-managed services have been removed. Remove madRAG from Docker and switch to host mode?") return 1 ;;
     *) return 0 ;;
   esac
 }}
@@ -1855,7 +1855,7 @@ env_storage_flow
     assert "LIGHTRAG_GRAPH_STORAGE=Neo4JStorage" in generated_env
     assert "LLM_BINDING=lollms" in generated_env
     assert "services:" in generated_compose
-    assert "  lightrag:" in generated_compose
+    assert "  madrag:" in generated_compose
     assert "env_file:" not in generated_compose
 
 
@@ -1934,10 +1934,10 @@ printf 'PROMPT_LOG=%s\\n' "$(paste -sd '|' "$PROMPT_LOG_FILE")\"
     )
     assert "POSTGRES_USER=rag" in generated_env
     assert "POSTGRES_PASSWORD=rag" in generated_env
-    assert "POSTGRES_DATABASE=lightrag" in generated_env
+    assert "POSTGRES_DATABASE=madrag" in generated_env
     assert 'POSTGRES_USER: "rag"' in generated_compose
     assert 'POSTGRES_PASSWORD: "rag"' in generated_compose
-    assert 'POSTGRES_DB: "lightrag"' in generated_compose
+    assert 'POSTGRES_DB: "madrag"' in generated_compose
 
 
 def test_env_storage_flow_preserves_existing_postgres_image_during_rewrite(
@@ -1955,8 +1955,8 @@ def test_env_storage_flow_preserves_existing_postgres_image_during_rewrite(
         ],
         [
             "services:",
-            "  lightrag:",
-            "    image: example/lightrag:test",
+            "  madrag:",
+            "    image: example/madrag:test",
             "  postgres:",
             "    image: registry.example.com/postgres-for-rag:patched",
         ],
@@ -2007,8 +2007,8 @@ def test_env_storage_flow_preserves_existing_neo4j_image_during_rewrite(
         ],
         [
             "services:",
-            "  lightrag:",
-            "    image: example/lightrag:test",
+            "  madrag:",
+            "    image: example/madrag:test",
             "  neo4j:",
             "    image: registry.example.com/neo4j:custom",
         ],
@@ -2061,8 +2061,8 @@ def test_env_storage_flow_preserves_existing_postgres_and_neo4j_images_on_rewrit
         ],
         [
             "services:",
-            "  lightrag:",
-            "    image: example/lightrag:test",
+            "  madrag:",
+            "    image: example/madrag:test",
             "  postgres:",
             "    image: registry.example.com/postgres-for-rag:patched",
             "  neo4j:",
@@ -2123,8 +2123,8 @@ def test_env_storage_flow_uses_template_image_when_existing_service_has_no_image
         ],
         [
             "services:",
-            "  lightrag:",
-            "    image: example/lightrag:test",
+            "  madrag:",
+            "    image: example/madrag:test",
             "  postgres:",
             "    environment:",
             '      LEGACY_SETTING: "1"',
@@ -2178,8 +2178,8 @@ def test_env_storage_flow_force_rewrite_drops_preserved_storage_images(
         ],
         [
             "services:",
-            "  lightrag:",
-            "    image: example/lightrag:test",
+            "  madrag:",
+            "    image: example/madrag:test",
             "  postgres:",
             "    image: registry.example.com/postgres-for-rag:patched",
             "  neo4j:",
@@ -2234,8 +2234,8 @@ def test_env_storage_flow_backs_up_existing_compose_before_rewrite(
         "\n".join(
             [
                 "services:",
-                "  lightrag:",
-                "    image: example/lightrag:test",
+                "  madrag:",
+                "    image: example/madrag:test",
                 "    environment:",
                 '      LEGACY_SETTING: "1"',
                 "  postgres:",
@@ -2271,7 +2271,7 @@ validate_mongo_vector_storage_config() {{ return 0; }}
 validate_sensitive_env_literals() {{ return 0; }}
 confirm_default_yes() {{
   case "$1" in
-    "All wizard-managed services have been removed. Remove LightRAG from Docker and switch to host mode?") return 1 ;;
+    "All wizard-managed services have been removed. Remove madRAG from Docker and switch to host mode?") return 1 ;;
     *) return 0 ;;
   esac
 }}
@@ -2285,13 +2285,13 @@ env_storage_flow
 
 
 def test_env_storage_flow_keeps_compose_mode_for_user_sidecars(tmp_path: Path) -> None:
-    """env-storage should keep LightRAG in Docker when user sidecars are present."""
+    """env-storage should keep madRAG in Docker when user sidecars are present."""
     existing_compose = (
         "\n".join(
             [
                 "services:",
-                "  lightrag:",
-                "    image: example/lightrag:test",
+                "  madrag:",
+                "    image: example/madrag:test",
                 "    environment:",
                 '      LEGACY_SETTING: "1"',
                 "  sidecar:",
@@ -2334,7 +2334,7 @@ env_storage_flow
     result = (tmp_path / "docker-compose.final.yml").read_text(encoding="utf-8")
     generated_env = (tmp_path / ".env").read_text(encoding="utf-8")
     assert_single_compose_backup(tmp_path, existing_compose)
-    assert "  lightrag:" in result
+    assert "  madrag:" in result
     assert "  sidecar:" in result
     assert "LIGHTRAG_RUNTIME_TARGET=compose" in generated_env
 
@@ -2411,8 +2411,8 @@ def test_env_storage_flow_preserves_existing_compose_ssl_when_env_paths_are_stal
         tmp_path / "docker-compose.final.yml",
         [
             "services:",
-            "  lightrag:",
-            "    image: example/lightrag:test",
+            "  madrag:",
+            "    image: example/madrag:test",
             "    environment:",
             '      SSL_CERTFILE: "/app/data/certs/cert.pem"',
             '      SSL_KEYFILE: "/app/data/certs/key.pem"',
@@ -2436,7 +2436,7 @@ collect_database_config() {{ :; }}
 validate_required_variables() {{ return 0; }}
 confirm_default_yes() {{
   case "$1" in
-    "All wizard-managed services have been removed. Remove LightRAG from Docker and switch to host mode?") return 1 ;;
+    "All wizard-managed services have been removed. Remove madRAG from Docker and switch to host mode?") return 1 ;;
     *) return 0 ;;
   esac
 }}
@@ -2476,8 +2476,8 @@ def test_env_server_flow_preserves_existing_compose_ssl_when_env_paths_are_stale
         tmp_path / "docker-compose.final.yml",
         [
             "services:",
-            "  lightrag:",
-            "    image: example/lightrag:test",
+            "  madrag:",
+            "    image: example/madrag:test",
             "    environment:",
             '      SSL_CERTFILE: "/app/data/certs/cert.pem"',
             '      SSL_KEYFILE: "/app/data/certs/key.pem"',
@@ -2499,7 +2499,7 @@ collect_security_config() {{ :; }}
 collect_ssl_config() {{ :; }}
 confirm_default_yes() {{
   case "$1" in
-    "All wizard-managed services have been removed. Remove LightRAG from Docker and switch to host mode?") return 1 ;;
+    "All wizard-managed services have been removed. Remove madRAG from Docker and switch to host mode?") return 1 ;;
     *) return 0 ;;
   esac
 }}
@@ -2526,8 +2526,8 @@ def test_env_server_flow_backs_up_existing_compose_before_rewrite(
         "\n".join(
             [
                 "services:",
-                "  lightrag:",
-                "    image: example/lightrag:test",
+                "  madrag:",
+                "    image: example/madrag:test",
                 "    environment:",
                 '      PORT: "9621"',
             ]
@@ -2557,7 +2557,7 @@ validate_sensitive_env_literals() {{ return 0; }}
 validate_security_config() {{ return 0; }}
 confirm_default_yes() {{
   case "$1" in
-    "All wizard-managed services have been removed. Remove LightRAG from Docker and switch to host mode?") return 1 ;;
+    "All wizard-managed services have been removed. Remove madRAG from Docker and switch to host mode?") return 1 ;;
     *) return 0 ;;
   esac
 }}
@@ -2593,8 +2593,8 @@ def test_env_storage_flow_drops_stale_vllm_services_missing_from_env_markers(
         "\n".join(
             [
                 "services:",
-                "  lightrag:",
-                "    image: example/lightrag:test",
+                "  madrag:",
+                "    image: example/madrag:test",
                 "  vllm-embed:",
                 "    image: vllm/vllm-openai:latest",
                 "  vllm-rerank:",
@@ -2658,7 +2658,7 @@ def test_env_storage_flow_preserves_vllm_services_marked_in_env(tmp_path: Path) 
     )
     write_text_lines(
         tmp_path / "docker-compose.final.yml",
-        ["services:", "  lightrag:", "    image: example/lightrag:test"],
+        ["services:", "  madrag:", "    image: example/madrag:test"],
     )
     run_bash(f"""
 set -euo pipefail
@@ -2687,7 +2687,7 @@ env_storage_flow
     assert "LIGHTRAG_RUNTIME_TARGET=compose" in generated_env
 
 
-def test_env_storage_flow_deletes_compose_when_switching_lightrag_to_host(
+def test_env_storage_flow_deletes_compose_when_switching_madrag_to_host(
     tmp_path: Path,
 ) -> None:
     """env-storage should back up and delete compose when no Docker services remain."""
@@ -2695,8 +2695,8 @@ def test_env_storage_flow_deletes_compose_when_switching_lightrag_to_host(
         "\n".join(
             [
                 "services:",
-                "  lightrag:",
-                "    image: example/lightrag:test",
+                "  madrag:",
+                "    image: example/madrag:test",
                 "  redis:",
                 "    image: redis:latest",
             ]
@@ -2736,7 +2736,7 @@ validate_sensitive_env_literals() {{ return 0; }}
 confirm_default_yes() {{ return 1; }}
 confirm_default_no() {{
   case "$1" in
-    "All wizard-managed services have been removed. Remove LightRAG from Docker and switch to host mode?") return 0 ;;
+    "All wizard-managed services have been removed. Remove madRAG from Docker and switch to host mode?") return 0 ;;
     *) return 1 ;;
   esac
 }}
@@ -2756,8 +2756,8 @@ def test_env_server_flow_preserves_existing_storage_images_on_compose_rewrite(
     """env-server should preserve postgres and neo4j images when a compose rewrite is triggered."""
     original_compose_lines = [
         "services:",
-        "  lightrag:",
-        "    image: example/lightrag:test",
+        "  madrag:",
+        "    image: example/madrag:test",
         "    environment:",
         '      PORT: "9621"',
         "  postgres:",
@@ -2791,7 +2791,7 @@ collect_security_config() {{ :; }}
 collect_ssl_config() {{ :; }}
 confirm_default_yes() {{
   case "$1" in
-    "All wizard-managed services have been removed. Remove LightRAG from Docker and switch to host mode?") return 1 ;;
+    "All wizard-managed services have been removed. Remove madRAG from Docker and switch to host mode?") return 1 ;;
     *) return 0 ;;
   esac
 }}
@@ -2822,8 +2822,8 @@ def test_env_server_flow_preserves_existing_storage_images_on_env_only_rerun(
         ],
         [
             "services:",
-            "  lightrag:",
-            "    image: example/lightrag:test",
+            "  madrag:",
+            "    image: example/madrag:test",
             "  postgres:",
             "    image: registry.example.com/postgres-for-rag:patched",
             "  neo4j:",
@@ -2850,7 +2850,7 @@ env_server_flow
     assert "image: registry.example.com/neo4j:custom" in result
 
 
-def test_env_server_flow_deletes_compose_when_switching_lightrag_to_host(
+def test_env_server_flow_deletes_compose_when_switching_madrag_to_host(
     tmp_path: Path,
 ) -> None:
     """env-server should back up and delete compose when no managed or sidecar services remain."""
@@ -2858,8 +2858,8 @@ def test_env_server_flow_deletes_compose_when_switching_lightrag_to_host(
         "\n".join(
             [
                 "services:",
-                "  lightrag:",
-                "    image: example/lightrag:test",
+                "  madrag:",
+                "    image: example/madrag:test",
                 "  redis:",
                 "    image: redis:latest",
             ]
@@ -2893,7 +2893,7 @@ validate_security_config() {{ return 0; }}
 confirm_default_yes() {{ return 1; }}
 confirm_default_no() {{
   case "$1" in
-    "All wizard-managed services have been removed. Remove LightRAG from Docker and switch to host mode?") return 0 ;;
+    "All wizard-managed services have been removed. Remove madRAG from Docker and switch to host mode?") return 0 ;;
     *) return 1 ;;
   esac
 }}
@@ -2908,13 +2908,13 @@ env_server_flow
 
 
 def test_env_server_flow_keeps_compose_mode_for_user_sidecars(tmp_path: Path) -> None:
-    """env-server should keep LightRAG in Docker when compose still carries user sidecars."""
+    """env-server should keep madRAG in Docker when compose still carries user sidecars."""
     existing_compose = (
         "\n".join(
             [
                 "services:",
-                "  lightrag:",
-                "    image: example/lightrag:test",
+                "  madrag:",
+                "    image: example/madrag:test",
                 "  sidecar:",
                 "    image: busybox",
             ]
@@ -2953,7 +2953,7 @@ env_server_flow
     result = (tmp_path / "docker-compose.final.yml").read_text(encoding="utf-8")
     generated_env = (tmp_path / ".env").read_text(encoding="utf-8")
     assert "  sidecar:" in result
-    assert "  lightrag:" in result
+    assert "  madrag:" in result
     assert "LIGHTRAG_RUNTIME_TARGET=compose" in generated_env
 
 
@@ -2965,8 +2965,8 @@ def test_env_server_flow_rejects_invalid_ssl_cert_when_switching_to_host(
         "\n".join(
             [
                 "services:",
-                "  lightrag:",
-                "    image: example/lightrag:test",
+                "  madrag:",
+                "    image: example/madrag:test",
                 "  redis:",
                 "    image: redis:latest",
             ]
@@ -3008,7 +3008,7 @@ validate_security_config() {{ return 0; }}
 confirm_default_yes() {{ return 1; }}
 confirm_default_no() {{
   case "$1" in
-    "All wizard-managed services have been removed. Remove LightRAG from Docker and switch to host mode?") return 0 ;;
+    "All wizard-managed services have been removed. Remove madRAG from Docker and switch to host mode?") return 0 ;;
     *) return 1 ;;
   esac
 }}

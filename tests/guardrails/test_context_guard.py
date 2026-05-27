@@ -1,8 +1,8 @@
 """Tests for ContextGuard — AITG-APP-02 indirect prompt injection."""
 
 import pytest
-from lightrag.guardrails.context_guard import ContextGuard
-from lightrag.guardrails.base import ViolationType
+from madrag.guardrails.context_guard import ContextGuard
+from madrag.guardrails.base import ViolationType
 
 
 @pytest.fixture

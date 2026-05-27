@@ -1,0 +1,10 @@
+apiVersion: v2
+name: madrag
+description: A Helm chart for madRAG, an efficient and lightweight RAG system
+type: application
+version: 0.1.1
+appVersion: "1.0.0"
+maintainers:
+  - name: madRAG Team
+  - name: earayu
+    email: earayu@gmail.com

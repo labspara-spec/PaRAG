@@ -3,13 +3,13 @@
 # Copy `env.docker-compose-full` to `.env` before starting this compose file.
 # You can customize your setup using the Setup Wizard; for detailed instructions, please refer to docs/InteractiveSetup.md
 services:
-  lightrag:
-    image: ghcr.io/hkuds/lightrag:latest
+  madrag:
+    image: ghcr.io/hkuds/madrag:latest
     build:
       context: .
       dockerfile: Dockerfile
       tags:
-        - ghcr.io/hkuds/lightrag:latest
+        - ghcr.io/hkuds/madrag:latest
     ports:
       - "${HOST:-0.0.0.0}:${PORT:-9621}:9621"
     volumes:
