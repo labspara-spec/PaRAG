@@ -40,6 +40,12 @@ from lightrag.constants import (
     DEFAULT_LLM_TIMEOUT,
     DEFAULT_EMBEDDING_TIMEOUT,
     DEFAULT_RERANK_TIMEOUT,
+    DEFAULT_POOL_MAX_SIZE,
+    DEFAULT_POOL_MIN_SIZE,
+    DEFAULT_POOL_IDLE_TIMEOUT,
+    DEFAULT_POOL_CLEANUP_INTERVAL,
+    DEFAULT_WORKER_INSTANCE_CACHE_SIZE,
+    DEFAULT_WORKER_IDLE_TIMEOUT,
 )
 
 # use the .env that is inside the current folder
@@ -511,6 +517,13 @@ def parse_args() -> argparse.Namespace:
     )
     args.enable_llm_cache = get_env_value("ENABLE_LLM_CACHE", True, bool)
 
+    # Semantic cache configuration
+    args.enable_semantic_cache = get_env_value("ENABLE_SEMANTIC_CACHE", False, bool)
+    args.semantic_cache_similarity_threshold = get_env_value(
+        "SEMANTIC_CACHE_SIMILARITY_THRESHOLD", 0.95, float
+    )
+    args.semantic_cache_ttl = get_env_value("SEMANTIC_CACHE_TTL", 3600, int)
+
     # PDF decryption password
     args.pdf_decrypt_password = get_env_value("PDF_DECRYPT_PASSWORD", None)
 
@@ -695,6 +708,31 @@ def parse_args() -> argparse.Namespace:
     # Asymmetric embedding behavior toggle
     args.embedding_asymmetric_configured = "EMBEDDING_ASYMMETRIC" in os.environ
     args.embedding_asymmetric = get_env_value("EMBEDDING_ASYMMETRIC", False, bool)
+
+    # Cloud storage provider for document inputs (replaces local input_dir writes)
+    args.cloud_storage_provider = get_env_value("CLOUD_STORAGE_PROVIDER", None, special_none=True)
+
+    # Cloud deployment / multi-pod configuration
+    args.cloud_mode = get_env_value("RAG_CLOUD_MODE", False, bool)
+    args.redis_uri = get_env_value("REDIS_URI", "redis://localhost:6379")
+
+    # Instance pool configuration (API pod LRU cache)
+    args.pool_max_size = get_env_value("RAG_POOL_MAX_SIZE", DEFAULT_POOL_MAX_SIZE, int)
+    args.pool_min_size = get_env_value("RAG_POOL_MIN_SIZE", DEFAULT_POOL_MIN_SIZE, int)
+    args.pool_idle_timeout = get_env_value(
+        "RAG_POOL_IDLE_TIMEOUT", DEFAULT_POOL_IDLE_TIMEOUT, float
+    )
+    args.pool_cleanup_interval = get_env_value(
+        "RAG_POOL_CLEANUP_INTERVAL", DEFAULT_POOL_CLEANUP_INTERVAL, float
+    )
+
+    # Worker configuration (used by lightrag-worker service)
+    args.worker_instance_cache_size = get_env_value(
+        "RAG_WORKER_INSTANCE_CACHE_SIZE", DEFAULT_WORKER_INSTANCE_CACHE_SIZE, int
+    )
+    args.worker_idle_timeout = get_env_value(
+        "RAG_WORKER_IDLE_TIMEOUT", DEFAULT_WORKER_IDLE_TIMEOUT, float
+    )
 
     # Sanitize workspace: only alphanumeric characters and underscores are allowed
     if args.workspace:

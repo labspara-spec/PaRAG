@@ -28,6 +28,48 @@ ID_FIELD = "id"
 DEFAULT_QDRANT_UPSERT_MAX_PAYLOAD_BYTES = 16 * 1024 * 1024  # 16MB
 DEFAULT_QDRANT_UPSERT_MAX_POINTS_PER_BATCH = 128
 
+
+class ClientManager:
+    """Process-wide singleton for QdrantClient, shared across all LightRAG instances.
+
+    Mirrors the ClientManager pattern used by postgres_impl, redis_impl, mongo_impl,
+    and opensearch_impl so that creating multiple LightRAG instances (e.g. one per
+    workspace in a pool) does not open a separate Qdrant connection per instance.
+    Reference-counting ensures the client is closed only when the last storage
+    instance finalizes.
+    """
+
+    _instances: dict[tuple, dict] = {}
+    _lock: asyncio.Lock | None = None
+
+    @classmethod
+    def _get_lock(cls) -> asyncio.Lock:
+        if cls._lock is None:
+            cls._lock = asyncio.Lock()
+        return cls._lock
+
+    @classmethod
+    async def get_client(cls, url: str | None, api_key: str | None) -> QdrantClient:
+        async with cls._get_lock():
+            key = (url, api_key)
+            if key not in cls._instances:
+                client = QdrantClient(url=url, api_key=api_key)
+                cls._instances[key] = {"client": client, "ref_count": 0}
+                logger.debug("ClientManager: created new QdrantClient url=%s", url)
+            cls._instances[key]["ref_count"] += 1
+            return cls._instances[key]["client"]
+
+    @classmethod
+    async def release_client(cls, url: str | None, api_key: str | None) -> None:
+        async with cls._get_lock():
+            key = (url, api_key)
+            if key not in cls._instances:
+                return
+            cls._instances[key]["ref_count"] -= 1
+            if cls._instances[key]["ref_count"] <= 0:
+                logger.debug("ClientManager: closing QdrantClient url=%s", url)
+                del cls._instances[key]
+
 config = configparser.ConfigParser()
 config.read("config.ini", "utf-8")
 
@@ -460,8 +502,10 @@ class QdrantVectorDBStorage(BaseVectorStorage):
             )
         self.cosine_better_than_threshold = cosine_threshold
 
-        # Initialize client as None - will be created in initialize() method
+        # Initialize client as None - will be set in initialize() via ClientManager
         self._client = None
+        self._qdrant_url: str | None = None
+        self._qdrant_api_key: str | None = None
         self._max_batch_size = self.global_config["embedding_batch_num"]
         self._max_upsert_payload_bytes = int(
             os.getenv(
@@ -571,6 +615,13 @@ class QdrantVectorDBStorage(BaseVectorStorage):
 
         return batches
 
+    async def finalize(self):
+        """Release this storage instance's reference to the shared QdrantClient."""
+        if self._initialized and self._qdrant_url is not None:
+            await ClientManager.release_client(self._qdrant_url, self._qdrant_api_key)
+            self._client = None
+            self._initialized = False
+
     async def initialize(self):
         """Initialize Qdrant collection"""
         async with get_data_init_lock():
@@ -578,19 +629,20 @@ class QdrantVectorDBStorage(BaseVectorStorage):
                 return
 
             try:
-                # Create QdrantClient if not already created
+                # Obtain shared QdrantClient via ClientManager (ref-counted singleton)
                 if self._client is None:
-                    self._client = QdrantClient(
-                        url=os.environ.get(
-                            "QDRANT_URL", config.get("qdrant", "uri", fallback=None)
-                        ),
-                        api_key=os.environ.get(
-                            "QDRANT_API_KEY",
-                            config.get("qdrant", "apikey", fallback=None),
-                        ),
+                    self._qdrant_url = os.environ.get(
+                        "QDRANT_URL", config.get("qdrant", "uri", fallback=None)
+                    )
+                    self._qdrant_api_key = os.environ.get(
+                        "QDRANT_API_KEY",
+                        config.get("qdrant", "apikey", fallback=None),
+                    )
+                    self._client = await ClientManager.get_client(
+                        self._qdrant_url, self._qdrant_api_key
                     )
                     logger.debug(
-                        f"[{self.workspace}] QdrantClient created successfully"
+                        f"[{self.workspace}] QdrantClient acquired from ClientManager"
                     )
 
                 # Setup collection (create if not exists and configure indexes)
@@ -656,18 +708,23 @@ class QdrantVectorDBStorage(BaseVectorStorage):
             }
             for k, v in data.items()
         ]
-        contents = [v["content"] for v in data.values()]
-        batches = [
-            contents[i : i + self._max_batch_size]
-            for i in range(0, len(contents), self._max_batch_size)
-        ]
-
-        embedding_tasks = [
-            self.embedding_func(batch, context="document") for batch in batches
-        ]
-        embeddings_list = await asyncio.gather(*embedding_tasks)
-
-        embeddings = np.concatenate(embeddings_list)
+        # Use pre-computed vectors when all records supply __vector__; otherwise embed.
+        data_values = list(data.values())
+        if all("__vector__" in v for v in data_values):
+            embeddings = np.array(
+                [np.array(v["__vector__"], dtype=np.float32) for v in data_values]
+            )
+        else:
+            contents = [v["content"] for v in data_values]
+            batches = [
+                contents[i : i + self._max_batch_size]
+                for i in range(0, len(contents), self._max_batch_size)
+            ]
+            embedding_tasks = [
+                self.embedding_func(batch, context="document") for batch in batches
+            ]
+            embeddings_list = await asyncio.gather(*embedding_tasks)
+            embeddings = np.concatenate(embeddings_list)
 
         list_points = []
         for i, d in enumerate(list_data):

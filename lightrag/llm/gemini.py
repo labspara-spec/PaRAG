@@ -42,6 +42,8 @@ from google import genai  # type: ignore
 from google.genai import types  # type: ignore
 from google.api_core import exceptions as google_api_exceptions  # type: ignore
 
+from lightrag.llm.costpilot import wrap_with_costpilot
+
 
 class InvalidResponseError(Exception):
     """Custom exception class for triggering retry mechanism when Gemini returns empty responses"""
@@ -126,7 +128,7 @@ def _get_gemini_client(
             logger.error("Failed to apply custom Gemini http_options: %s", e)
             raise e
 
-    return genai.Client(**client_kwargs)
+    return wrap_with_costpilot(genai.Client(**client_kwargs))
 
 
 def _ensure_api_key(api_key: str | None) -> str:
@@ -745,8 +747,135 @@ async def gemini_embed(
     return embeddings
 
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=4, max=60),
+    retry=(
+        retry_if_exception_type(google_api_exceptions.InternalServerError)
+        | retry_if_exception_type(google_api_exceptions.ServiceUnavailable)
+        | retry_if_exception_type(google_api_exceptions.ResourceExhausted)
+        | retry_if_exception_type(google_api_exceptions.GatewayTimeout)
+        | retry_if_exception_type(google_api_exceptions.BadGateway)
+        | retry_if_exception_type(google_api_exceptions.DeadlineExceeded)
+        | retry_if_exception_type(google_api_exceptions.Aborted)
+        | retry_if_exception_type(google_api_exceptions.Unknown)
+    ),
+)
+async def gemini_multimodal_embed(
+    items: list[dict],
+    model: str = "gemini-embedding-exp-03-07",
+    api_key: str | None = None,
+    base_url: str | None = None,
+    token_tracker: Any | None = None,
+) -> np.ndarray:
+    """Embed a batch of image/text items using Gemini's multimodal embedding model.
+
+    Each item is either:
+      - ``{"text": str}`` — a plain text string to embed
+      - ``{"base64": str, "mime_type": str, "caption": str}`` — an image
+
+    Returns a 3072-dim float32 numpy array of shape (len(items), 3072).
+    Maximum 6 items per call (Gemini API limit for multimodal).
+    """
+    import base64 as _base64
+
+    key = _ensure_api_key(api_key)
+    client = _get_gemini_client(key, base_url, None)
+
+    # Each item must be a separate Content object so the API returns one
+    # embedding per item (not one embedding for the whole flat parts list).
+    contents = []
+    for item in items:
+        if "text" in item:
+            contents.append(types.Content(parts=[types.Part.from_text(text=item["text"])]))
+        elif "base64" in item:
+            mime = item.get("mime_type", "image/png")
+            image_bytes = _base64.b64decode(item["base64"])
+            item_parts: list[types.Part] = [
+                types.Part.from_bytes(data=image_bytes, mime_type=mime)
+            ]
+            caption = item.get("caption", "")
+            if caption:
+                item_parts.append(types.Part.from_text(text=caption))
+            contents.append(types.Content(parts=item_parts))
+        else:
+            raise ValueError(
+                f"Unknown item format for gemini_multimodal_embed: {list(item.keys())}"
+            )
+
+    response = await client.aio.models.embed_content(
+        model=model,
+        contents=contents,
+        config=types.EmbedContentConfig(task_type="RETRIEVAL_DOCUMENT"),
+    )
+
+    if not hasattr(response, "embeddings") or not response.embeddings:
+        raise RuntimeError("Gemini multimodal embed response contained no embeddings.")
+
+    embeddings = np.array(
+        [np.array(e.values, dtype=np.float32) for e in response.embeddings]
+    )
+
+    if token_tracker and hasattr(response, "usage_metadata"):
+        usage = response.usage_metadata
+        token_tracker.add_usage({
+            "prompt_tokens": getattr(usage, "prompt_token_count", 0),
+            "total_tokens": getattr(usage, "total_token_count", 0),
+        })
+
+    return embeddings
+
+
+@wrap_embedding_func_with_attrs(
+    embedding_dim=3072,
+    max_token_size=8192,
+    model_name="gemini-embedding-exp-03-07",
+)
+async def gemini_multimodal_embed_text(
+    texts: list[str],
+    model: str = "gemini-embedding-exp-03-07",
+    api_key: str | None = None,
+    base_url: str | None = None,
+    token_tracker: Any | None = None,
+    context: str = "query",
+    **_kwargs: Any,
+) -> np.ndarray:
+    """Text-only wrapper for the multimodal embedding model.
+
+    Used as the ``image_embedding_func`` EmbeddingFunc at query time so
+    that text queries are embedded into the same 3072-dim space as images.
+    """
+    task_type = "RETRIEVAL_QUERY" if context == "query" else "RETRIEVAL_DOCUMENT"
+    key = _ensure_api_key(api_key)
+    client = _get_gemini_client(key, base_url, None)
+
+    response = await client.aio.models.embed_content(
+        model=model,
+        contents=texts,
+        config=types.EmbedContentConfig(task_type=task_type),
+    )
+
+    if not hasattr(response, "embeddings") or not response.embeddings:
+        raise RuntimeError("Gemini multimodal text embed response contained no embeddings.")
+
+    embeddings = np.array(
+        [np.array(e.values, dtype=np.float32) for e in response.embeddings]
+    )
+
+    if token_tracker and hasattr(response, "usage_metadata"):
+        usage = response.usage_metadata
+        token_tracker.add_usage({
+            "prompt_tokens": getattr(usage, "prompt_token_count", 0),
+            "total_tokens": getattr(usage, "total_token_count", 0),
+        })
+
+    return embeddings
+
+
 __all__ = [
     "gemini_complete_if_cache",
     "gemini_model_complete",
     "gemini_embed",
+    "gemini_multimodal_embed",
+    "gemini_multimodal_embed_text",
 ]

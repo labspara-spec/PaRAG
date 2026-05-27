@@ -101,6 +101,21 @@ api = [
 ]
 
 # Offline deployment dependencies (layered design for flexibility)
+cloud-storage = [
+    # AWS S3
+    "aioboto3>=12.0.0,<16.0.0",
+    # Azure Blob Storage
+    "azure-storage-blob>=12.0.0,<13.0.0",
+    "azure-identity>=1.15.0",
+    # Google Cloud Storage (GCS)
+    "google-cloud-storage>=2.0.0",
+    # Google Drive
+    "google-api-python-client>=2.0.0,<3.0.0",
+    "google-auth-httplib2>=0.2.0",
+    "google-auth>=2.0.0,<3.0.0",
+    # SharePoint / OneDrive via Graph API uses httpx (already in api extra)
+]
+
 offline-storage = [
     # Storage backend dependencies
     "redis>=5.0.0,<8.0.0",
@@ -149,10 +164,13 @@ evaluation = [
 observability = [
     # LLM observability and tracing dependencies
     "langfuse>=3.8.1",
+    # Cost tracking across all LLM providers
+    "costpilot>=0.1.0",
 ]
 
 [project.scripts]
 lightrag-server = "lightrag.api.lightrag_server:main"
+lightrag-worker = "lightrag.api.worker_service:main"
 lightrag-gunicorn = "lightrag.api.run_with_gunicorn:main"
 lightrag-hash-password = "lightrag.tools.hash_password:main"
 lightrag-download-cache = "lightrag.tools.download_cache:main"

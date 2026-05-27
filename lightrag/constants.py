@@ -76,7 +76,7 @@ DEFAULT_TEMPERATURE = 1.0
 
 # Async configuration defaults
 DEFAULT_MAX_ASYNC = 4  # Default maximum async operations
-DEFAULT_MAX_PARALLEL_INSERT = 2  # Default maximum parallel insert operations
+DEFAULT_MAX_PARALLEL_INSERT = 4  # Default maximum parallel insert operations (increased for multi-user)
 
 # Chunker defaults — i18n-aware so Chinese / mixed-language documents
 # split correctly out of the box.  Override per deployment via
@@ -298,7 +298,17 @@ DEFAULT_MAX_PARALLEL_PARSE_DOCLING = 1
 
 # Staged pipeline queue size defaults.
 DEFAULT_QUEUE_SIZE_DEFAULT = 100
-DEFAULT_QUEUE_SIZE_INSERT = 4
+DEFAULT_QUEUE_SIZE_INSERT = 20  # increased from 4 for multi-user throughput
+
+# Instance pool defaults (LightRAGPool — one instance per workspace)
+DEFAULT_POOL_MAX_SIZE = 8        # max concurrent LightRAG instances in pool
+DEFAULT_POOL_MIN_SIZE = 1        # never evict below this count
+DEFAULT_POOL_IDLE_TIMEOUT = 300.0  # seconds idle before finalize + eviction
+DEFAULT_POOL_CLEANUP_INTERVAL = 60.0  # seconds between cleanup sweeps
+
+# Worker service defaults (lightrag-worker process)
+DEFAULT_WORKER_INSTANCE_CACHE_SIZE = 4  # per-worker LRU instance cache size
+DEFAULT_WORKER_IDLE_TIMEOUT = 300.0     # seconds worker instance sits idle before eviction
 
 # Multimodal analysis / chunk thresholds
 # Minimum token count retained when truncating a multimodal chunk's

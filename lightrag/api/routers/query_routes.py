@@ -4,7 +4,7 @@ This module contains all query-related routes for the LightRAG API.
 
 import json
 from typing import Any, Dict, List, Literal, Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from lightrag.base import QueryParam
 from lightrag.api.utils_api import get_combined_auth_dependency
 from lightrag.utils import logger
@@ -48,6 +48,12 @@ class QueryRequest(BaseModel):
         ge=1,
         default=None,
         description="Number of text chunks to retrieve initially from vector search and keep after reranking.",
+    )
+
+    image_top_k: Optional[int] = Field(
+        ge=0,
+        default=None,
+        description="Number of visually similar images to retrieve. 0 (default) disables image search and avoids a second embedding call.",
     )
 
     max_entity_tokens: Optional[int] = Field(
@@ -188,7 +194,7 @@ class StreamChunkResponse(BaseModel):
     )
 
 
-def create_query_routes(rag, api_key: Optional[str] = None, top_k: int = 60):
+def create_query_routes(pool, api_key: Optional[str] = None, top_k: int = 60):
     # Fresh router per call. A module-level instance would accumulate
     # duplicate routes when the factory is invoked more than once in the
     # same process (e.g. across tests), which triggers FastAPI's
@@ -196,6 +202,17 @@ def create_query_routes(rag, api_key: Optional[str] = None, top_k: int = 60):
     router = APIRouter(tags=["query"])
 
     combined_auth = get_combined_auth_dependency(api_key)
+
+    from lightrag.kg.shared_storage import get_default_workspace
+    default_workspace = get_default_workspace()
+
+    def _extract_workspace(request: Request) -> str:
+        import re
+        header = request.headers.get("LIGHTRAG-WORKSPACE", "").strip()
+        if not header:
+            return default_workspace or ""
+        sanitized = re.sub(r"[^a-zA-Z0-9_]", "_", header)
+        return sanitized
 
     @router.post(
         "/query",
@@ -326,7 +343,7 @@ def create_query_routes(rag, api_key: Optional[str] = None, top_k: int = 60):
             },
         },
     )
-    async def query_text(request: QueryRequest):
+    async def query_text(request: QueryRequest, http_request: Request):
         """
         Comprehensive RAG query endpoint with non-streaming response. Parameter "stream" is ignored.
 
@@ -405,6 +422,7 @@ def create_query_routes(rag, api_key: Optional[str] = None, top_k: int = 60):
                 - 400: Invalid input parameters (e.g., query too short)
                 - 500: Internal processing error (e.g., LLM service unavailable)
         """
+        workspace = _extract_workspace(http_request)
         try:
             param = request.to_query_params(
                 False
@@ -413,7 +431,8 @@ def create_query_routes(rag, api_key: Optional[str] = None, top_k: int = 60):
             param.stream = False
 
             # Unified approach: always use aquery_llm for both cases
-            result = await rag.aquery_llm(request.query, param=param)
+            async with pool.acquire(workspace) as rag:
+                result = await rag.aquery_llm(request.query, param=param)
 
             # Extract LLM response and references from unified result
             llm_response = result.get("llm_response", {})
@@ -536,7 +555,7 @@ def create_query_routes(rag, api_key: Optional[str] = None, top_k: int = 60):
             },
         },
     )
-    async def query_text_stream(request: QueryRequest):
+    async def query_text_stream(request: QueryRequest, http_request: Request):
         """
         Advanced RAG query endpoint with flexible streaming response.
 
@@ -663,6 +682,7 @@ def create_query_routes(rag, api_key: Optional[str] = None, top_k: int = 60):
             This endpoint is ideal for applications requiring flexible response delivery.
             Use streaming mode for real-time interfaces and non-streaming for batch processing.
         """
+        workspace = _extract_workspace(http_request)
         try:
             # Use the stream parameter from the request, defaulting to True if not specified
             stream_mode = request.stream if request.stream is not None else True
@@ -671,7 +691,8 @@ def create_query_routes(rag, api_key: Optional[str] = None, top_k: int = 60):
             from fastapi.responses import StreamingResponse
 
             # Unified approach: always use aquery_llm for all cases
-            result = await rag.aquery_llm(request.query, param=param)
+            async with pool.acquire(workspace) as rag:
+                result = await rag.aquery_llm(request.query, param=param)
 
             async def stream_generator():
                 # Extract references and LLM response from unified result

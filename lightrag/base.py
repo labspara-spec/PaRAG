@@ -104,6 +104,13 @@ class QueryParam:
     If None, defaults to top_k value.
     """
 
+    image_top_k: int = 0
+    """Number of visually similar images to retrieve per query.
+
+    Defaults to 0 (image search disabled — no Gemini embedding call is made).
+    Set > 0 to enable cross-modal image retrieval when image_embedding_func is configured.
+    """
+
     max_entity_tokens: int = int(
         os.getenv("MAX_ENTITY_TOKENS", str(DEFAULT_MAX_ENTITY_TOKENS))
     )

@@ -4,7 +4,7 @@ This module contains all graph-related routes for the LightRAG API.
 
 from typing import Optional, Dict, Any
 import traceback
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from lightrag.utils import logger
@@ -85,7 +85,7 @@ class RelationCreateRequest(BaseModel):
     )
 
 
-def create_graph_routes(rag, api_key: Optional[str] = None):
+def create_graph_routes(pool, api_key: Optional[str] = None):
     # Fresh router per call. A module-level instance would accumulate
     # duplicate routes when the factory is invoked more than once in the
     # same process (e.g. across tests), which triggers FastAPI's
@@ -94,8 +94,19 @@ def create_graph_routes(rag, api_key: Optional[str] = None):
 
     combined_auth = get_combined_auth_dependency(api_key)
 
+    from lightrag.kg.shared_storage import get_default_workspace
+    default_workspace = get_default_workspace()
+
+    def _extract_workspace(request: Request) -> str:
+        import re
+        header = request.headers.get("LIGHTRAG-WORKSPACE", "").strip()
+        if not header:
+            return default_workspace or ""
+        sanitized = re.sub(r"[^a-zA-Z0-9_]", "_", header)
+        return sanitized
+
     @router.get("/graph/label/list", dependencies=[Depends(combined_auth)])
-    async def get_graph_labels():
+    async def get_graph_labels(request: Request):
         """
         Get all graph labels
 
@@ -103,7 +114,8 @@ def create_graph_routes(rag, api_key: Optional[str] = None):
             List[str]: List of graph labels
         """
         try:
-            return await rag.get_graph_labels()
+            async with pool.acquire(_extract_workspace(request)) as rag:
+                return await rag.get_graph_labels()
         except Exception as e:
             logger.error(f"Error getting graph labels: {str(e)}")
             logger.error(traceback.format_exc())
@@ -113,6 +125,7 @@ def create_graph_routes(rag, api_key: Optional[str] = None):
 
     @router.get("/graph/label/popular", dependencies=[Depends(combined_auth)])
     async def get_popular_labels(
+        request: Request,
         limit: int = Query(
             300, description="Maximum number of popular labels to return", ge=1, le=1000
         ),
@@ -127,7 +140,8 @@ def create_graph_routes(rag, api_key: Optional[str] = None):
             List[str]: List of popular labels sorted by degree (highest first)
         """
         try:
-            return await rag.chunk_entity_relation_graph.get_popular_labels(limit)
+            async with pool.acquire(_extract_workspace(request)) as rag:
+                return await rag.chunk_entity_relation_graph.get_popular_labels(limit)
         except Exception as e:
             logger.error(f"Error getting popular labels: {str(e)}")
             logger.error(traceback.format_exc())
@@ -137,6 +151,7 @@ def create_graph_routes(rag, api_key: Optional[str] = None):
 
     @router.get("/graph/label/search", dependencies=[Depends(combined_auth)])
     async def search_labels(
+        request: Request,
         q: str = Query(..., description="Search query string"),
         limit: int = Query(
             50, description="Maximum number of search results to return", ge=1, le=100
@@ -153,7 +168,8 @@ def create_graph_routes(rag, api_key: Optional[str] = None):
             List[str]: List of matching labels sorted by relevance
         """
         try:
-            return await rag.chunk_entity_relation_graph.search_labels(q, limit)
+            async with pool.acquire(_extract_workspace(request)) as rag:
+                return await rag.chunk_entity_relation_graph.search_labels(q, limit)
         except Exception as e:
             logger.error(f"Error searching labels with query '{q}': {str(e)}")
             logger.error(traceback.format_exc())
@@ -163,6 +179,7 @@ def create_graph_routes(rag, api_key: Optional[str] = None):
 
     @router.get("/graphs", dependencies=[Depends(combined_auth)])
     async def get_knowledge_graph(
+        request: Request,
         label: str = Query(..., description="Label to get knowledge graph for"),
         max_depth: int = Query(3, description="Maximum depth of graph", ge=1),
         max_nodes: int = Query(1000, description="Maximum nodes to return", ge=1),
@@ -187,11 +204,12 @@ def create_graph_routes(rag, api_key: Optional[str] = None):
                 f"get_knowledge_graph called with label: '{label}' (length: {len(label)}, repr: {repr(label)})"
             )
 
-            return await rag.get_knowledge_graph(
-                node_label=label,
-                max_depth=max_depth,
-                max_nodes=max_nodes,
-            )
+            async with pool.acquire(_extract_workspace(request)) as rag:
+                return await rag.get_knowledge_graph(
+                    node_label=label,
+                    max_depth=max_depth,
+                    max_nodes=max_nodes,
+                )
         except Exception as e:
             logger.error(f"Error getting knowledge graph for label '{label}': {str(e)}")
             logger.error(traceback.format_exc())
@@ -201,6 +219,7 @@ def create_graph_routes(rag, api_key: Optional[str] = None):
 
     @router.get("/graph/entity/exists", dependencies=[Depends(combined_auth)])
     async def check_entity_exists(
+        request: Request,
         name: str = Query(..., description="Entity name to check"),
     ):
         """
@@ -213,7 +232,8 @@ def create_graph_routes(rag, api_key: Optional[str] = None):
             Dict[str, bool]: Dictionary with 'exists' key indicating if entity exists
         """
         try:
-            exists = await rag.chunk_entity_relation_graph.has_node(name)
+            async with pool.acquire(_extract_workspace(request)) as rag:
+                exists = await rag.chunk_entity_relation_graph.has_node(name)
             return {"exists": exists}
         except Exception as e:
             logger.error(f"Error checking entity existence for '{name}': {str(e)}")
@@ -223,7 +243,7 @@ def create_graph_routes(rag, api_key: Optional[str] = None):
             )
 
     @router.post("/graph/entity/edit", dependencies=[Depends(combined_auth)])
-    async def update_entity(request: EntityUpdateRequest):
+    async def update_entity(request: EntityUpdateRequest, http_request: Request):
         """
         Update an entity's properties in the knowledge graph
 
@@ -358,13 +378,14 @@ def create_graph_routes(rag, api_key: Optional[str] = None):
             }
         """
         try:
-            await check_pipeline_busy_or_raise(rag)
-            result = await rag.aedit_entity(
-                entity_name=request.entity_name,
-                updated_data=request.updated_data,
-                allow_rename=request.allow_rename,
-                allow_merge=request.allow_merge,
-            )
+            async with pool.acquire(_extract_workspace(http_request)) as rag:
+                await check_pipeline_busy_or_raise(rag)
+                result = await rag.aedit_entity(
+                    entity_name=request.entity_name,
+                    updated_data=request.updated_data,
+                    allow_rename=request.allow_rename,
+                    allow_merge=request.allow_merge,
+                )
 
             # Extract operation_summary from result, with fallback for backward compatibility
             operation_summary = result.get(
@@ -416,7 +437,7 @@ def create_graph_routes(rag, api_key: Optional[str] = None):
             )
 
     @router.post("/graph/relation/edit", dependencies=[Depends(combined_auth)])
-    async def update_relation(request: RelationUpdateRequest):
+    async def update_relation(request: RelationUpdateRequest, http_request: Request):
         """Update a relation's properties in the knowledge graph
 
         Args:
@@ -426,12 +447,13 @@ def create_graph_routes(rag, api_key: Optional[str] = None):
             Dict: Updated relation information
         """
         try:
-            await check_pipeline_busy_or_raise(rag)
-            result = await rag.aedit_relation(
-                source_entity=request.source_id,
-                target_entity=request.target_id,
-                updated_data=request.updated_data,
-            )
+            async with pool.acquire(_extract_workspace(http_request)) as rag:
+                await check_pipeline_busy_or_raise(rag)
+                result = await rag.aedit_relation(
+                    source_entity=request.source_id,
+                    target_entity=request.target_id,
+                    updated_data=request.updated_data,
+                )
             return {
                 "status": "success",
                 "message": "Relation updated successfully",
@@ -454,7 +476,7 @@ def create_graph_routes(rag, api_key: Optional[str] = None):
             )
 
     @router.post("/graph/entity/create", dependencies=[Depends(combined_auth)])
-    async def create_entity(request: EntityCreateRequest):
+    async def create_entity(request: EntityCreateRequest, http_request: Request):
         """
         Create a new entity in the knowledge graph
 
@@ -499,16 +521,17 @@ def create_graph_routes(rag, api_key: Optional[str] = None):
             }
         """
         try:
-            await check_pipeline_busy_or_raise(rag)
-            # Use the proper acreate_entity method which handles:
-            # - Graph lock for concurrency
-            # - Vector embedding creation in entities_vdb
-            # - Metadata population and defaults
-            # - Index consistency via _edit_entity_done
-            result = await rag.acreate_entity(
-                entity_name=request.entity_name,
-                entity_data=request.entity_data,
-            )
+            async with pool.acquire(_extract_workspace(http_request)) as rag:
+                await check_pipeline_busy_or_raise(rag)
+                # Use the proper acreate_entity method which handles:
+                # - Graph lock for concurrency
+                # - Vector embedding creation in entities_vdb
+                # - Metadata population and defaults
+                # - Index consistency via _edit_entity_done
+                result = await rag.acreate_entity(
+                    entity_name=request.entity_name,
+                    entity_data=request.entity_data,
+                )
 
             return {
                 "status": "success",
@@ -530,7 +553,7 @@ def create_graph_routes(rag, api_key: Optional[str] = None):
             )
 
     @router.post("/graph/relation/create", dependencies=[Depends(combined_auth)])
-    async def create_relation(request: RelationCreateRequest):
+    async def create_relation(request: RelationCreateRequest, http_request: Request):
         """
         Create a new relationship between two entities in the knowledge graph
 
@@ -587,18 +610,19 @@ def create_graph_routes(rag, api_key: Optional[str] = None):
             }
         """
         try:
-            await check_pipeline_busy_or_raise(rag)
-            # Use the proper acreate_relation method which handles:
-            # - Graph lock for concurrency
-            # - Entity existence validation
-            # - Duplicate relation checks
-            # - Vector embedding creation in relationships_vdb
-            # - Index consistency via _edit_relation_done
-            result = await rag.acreate_relation(
-                source_entity=request.source_entity,
-                target_entity=request.target_entity,
-                relation_data=request.relation_data,
-            )
+            async with pool.acquire(_extract_workspace(http_request)) as rag:
+                await check_pipeline_busy_or_raise(rag)
+                # Use the proper acreate_relation method which handles:
+                # - Graph lock for concurrency
+                # - Entity existence validation
+                # - Duplicate relation checks
+                # - Vector embedding creation in relationships_vdb
+                # - Index consistency via _edit_relation_done
+                result = await rag.acreate_relation(
+                    source_entity=request.source_entity,
+                    target_entity=request.target_entity,
+                    relation_data=request.relation_data,
+                )
 
             return {
                 "status": "success",
@@ -622,7 +646,7 @@ def create_graph_routes(rag, api_key: Optional[str] = None):
             )
 
     @router.post("/graph/entities/merge", dependencies=[Depends(combined_auth)])
-    async def merge_entities(request: EntityMergeRequest):
+    async def merge_entities(request: EntityMergeRequest, http_request: Request):
         """
         Merge multiple entities into a single entity, preserving all relationships
 
@@ -679,11 +703,12 @@ def create_graph_routes(rag, api_key: Optional[str] = None):
             - This operation cannot be undone, so verify entity names before merging
         """
         try:
-            await check_pipeline_busy_or_raise(rag)
-            result = await rag.amerge_entities(
-                source_entities=request.entities_to_change,
-                target_entity=request.entity_to_change_into,
-            )
+            async with pool.acquire(_extract_workspace(http_request)) as rag:
+                await check_pipeline_busy_or_raise(rag)
+                result = await rag.amerge_entities(
+                    source_entities=request.entities_to_change,
+                    target_entity=request.entity_to_change_into,
+                )
             return {
                 "status": "success",
                 "message": f"Successfully merged {len(request.entities_to_change)} entities into '{request.entity_to_change_into}'",

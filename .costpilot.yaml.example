@@ -1,0 +1,61 @@
+# CostPilot configuration for PaRAG
+# Copy to .costpilot.yaml and fill in your values.
+# Or run: costpilot init
+#
+# Priority: constructor args → env vars → this file → defaults
+# Docs: https://costpilot.dev/docs/configuration
+
+project: parag            # groups queries in the dashboard
+environment: local        # local | staging | production
+
+# Authentication — exactly one key required.
+# api_key     → CostPilot Cloud mode
+# license_key → Self-hosted / enterprise mode
+api_key: "cp_live_sk_..."
+# license_key: "cp_license_..."
+
+privacy:
+  hash_user_ids: true     # SHA-256 hash before storage (recommended)
+  salt: ""                # HMAC salt; auto-generated if empty
+  capture_prompts: false  # must remain false
+
+llm:
+  providers:
+    - anthropic
+    - openai
+    - azure-openai
+    - gemini
+  # azure_openai:
+  #   deployment_type: payg   # payg | ptu
+  #   region: eastus
+
+# Service health tracking.
+# PaRAG auto-detects Redis and Qdrant from REDIS_URI / QDRANT_URL
+# when using the auto-generated config. Override here for full control.
+services:
+  redis:
+    enabled: true
+    mode: docker            # docker (local) | managed (Upstash, ElastiCache, etc.)
+    host: localhost
+    port: 6379
+  qdrant:
+    enabled: true
+    mode: docker            # docker (local) | managed (Qdrant Cloud)
+    host: localhost
+    port: 6333
+  # appwrite:
+  #   enabled: false
+  #   mode: docker           # docker | cloud
+  #   endpoint: http://localhost/v1
+
+storage:
+  path: ./.costpilot/data.db   # local SQLite; encrypted with SQLCipher
+
+dashboard:
+  port: 3721
+
+cloud:
+  region: us-east-1       # us-east-1 | eu-west-1 | ap-south-1
+  # azure:
+  #   subscription_id: ""
+  #   resource_group: ""

@@ -32,6 +32,7 @@ from lightrag.utils import (
     logger,
 )
 from lightrag.api import __api_version__
+from lightrag.llm.costpilot import wrap_with_costpilot
 
 
 # Custom exception for retry mechanism
@@ -112,7 +113,7 @@ async def anthropic_complete_if_cache(
     # default to False (non-streaming) for consistency with other providers
     stream = kwargs.pop("stream", False)
 
-    anthropic_async_client = (
+    anthropic_async_client = wrap_with_costpilot(
         AsyncAnthropic(
             default_headers=default_headers, api_key=api_key, timeout=timeout
         )

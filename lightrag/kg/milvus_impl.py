@@ -1474,18 +1474,21 @@ class MilvusVectorDBStorage(BaseVectorStorage):
             }
             for k, v in data.items()
         ]
-        contents = [v["content"] for v in data.values()]
-        batches = [
-            contents[i : i + self._max_batch_size]
-            for i in range(0, len(contents), self._max_batch_size)
-        ]
-
-        embedding_tasks = [
-            self.embedding_func(batch, context="document") for batch in batches
-        ]
-        embeddings_list = await asyncio.gather(*embedding_tasks)
-
-        embeddings = np.concatenate(embeddings_list)
+        data_values = list(data.values())
+        if all("__vector__" in v for v in data_values):
+            embeddings = np.array(
+                [np.array(v["__vector__"], dtype=np.float32) for v in data_values]
+            )
+        else:
+            contents = [v["content"] for v in data_values]
+            batches = [
+                contents[i : i + self._max_batch_size]
+                for i in range(0, len(contents), self._max_batch_size)
+            ]
+            embeddings_list = await asyncio.gather(
+                *[self.embedding_func(batch, context="document") for batch in batches]
+            )
+            embeddings = np.concatenate(embeddings_list)
         for i, d in enumerate(list_data):
             d["vector"] = embeddings[i]
         results = self._client.upsert(

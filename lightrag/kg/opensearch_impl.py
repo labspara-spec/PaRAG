@@ -3354,18 +3354,23 @@ class OpenSearchVectorDBStorage(BaseVectorStorage):
                 }
             )
             await _cooperative_yield(i)
-        contents = [v["content"] for v in data.values()]
-
-        batches = [
-            contents[i : i + self._max_batch_size]
-            for i in range(0, len(contents), self._max_batch_size)
-        ]
+        data_values = list(data.values())
         # Run embeddings outside the lock to avoid blocking reads on slow
         # remote embedding providers.
-        embeddings_list = await asyncio.gather(
-            *[self.embedding_func(batch, context="document") for batch in batches]
-        )
-        embeddings = np.concatenate(embeddings_list)
+        if all("__vector__" in v for v in data_values):
+            embeddings = np.array(
+                [np.array(v["__vector__"], dtype=np.float32) for v in data_values]
+            )
+        else:
+            contents = [v["content"] for v in data_values]
+            batches = [
+                contents[i : i + self._max_batch_size]
+                for i in range(0, len(contents), self._max_batch_size)
+            ]
+            embeddings_list = await asyncio.gather(
+                *[self.embedding_func(batch, context="document") for batch in batches]
+            )
+            embeddings = np.concatenate(embeddings_list)
         assert len(embeddings) == len(
             list_data
         ), f"Embedding count mismatch: expected {len(list_data)}, got {len(embeddings)}"

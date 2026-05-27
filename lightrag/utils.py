@@ -2014,6 +2014,82 @@ async def save_to_cache(hashing_kv, cache_data: CacheData):
     await hashing_kv.upsert({flattened_key: cache_entry})
 
 
+async def semantic_cache_lookup(
+    query: str,
+    mode: str,
+    semantic_cache_vdb,
+    semantic_cache_kv,
+    threshold: float,
+    ttl: int,
+):
+    """Search semantic cache for a similar past query. Returns QueryResult on hit, None on miss."""
+    import time
+    import json
+
+    results = await semantic_cache_vdb.query(query=query, top_k=5)
+    if not results:
+        return None
+
+    for hit in results:
+        if hit.get("distance", 0) < threshold:
+            break
+        if hit.get("mode") != mode:
+            continue
+        if ttl > 0 and time.time() - hit.get("created_at", 0) > ttl:
+            continue
+        entry_id = hit["id"]
+        kv_entry = await semantic_cache_kv.get_by_id(entry_id)
+        if not kv_entry:
+            continue
+        raw_data_str = kv_entry.get("raw_data")
+        raw_data = json.loads(raw_data_str) if raw_data_str else None
+        logger.info(
+            f"== Semantic cache == HIT (score={hit.get('distance', 0):.3f}): {query[:80]}"
+        )
+        from lightrag.base import QueryResult
+
+        return QueryResult(content=kv_entry["content"], raw_data=raw_data)
+
+    return None
+
+
+async def semantic_cache_store(
+    query: str,
+    mode: str,
+    result,
+    semantic_cache_vdb,
+    semantic_cache_kv,
+) -> None:
+    """Store a QueryResult in the semantic cache keyed by query embedding."""
+    import hashlib
+    import json
+    import time
+
+    if not result.content:
+        return
+
+    entry_id = hashlib.md5(f"{mode}:{query}".encode()).hexdigest()
+    created_at = int(time.time())
+
+    await semantic_cache_vdb.upsert(
+        {entry_id: {"content": query, "mode": mode, "created_at": created_at}}
+    )
+
+    raw_data_str = json.dumps(result.raw_data) if result.raw_data else None
+    await semantic_cache_kv.upsert(
+        {
+            entry_id: {
+                "content": result.content,
+                "raw_data": raw_data_str,
+                "original_query": query,
+                "mode": mode,
+                "created_at": created_at,
+            }
+        }
+    )
+    logger.debug(f"== Semantic cache == stored entry {entry_id} for: {query[:80]}")
+
+
 def safe_unicode_decode(content):
     # Regular expression to find all Unicode escape sequences of the form \uXXXX
     unicode_escape_pattern = re.compile(r"\\u([0-9a-fA-F]{4})")
@@ -3725,6 +3801,7 @@ def convert_to_user_format(
     query_mode: str,
     entity_id_to_original: dict = None,
     relation_id_to_original: dict = None,
+    images: list[dict] = None,
 ) -> dict[str, Any]:
     """Convert internal data format to user-friendly format using original database data"""
 
@@ -3836,6 +3913,7 @@ def convert_to_user_format(
             "relationships": formatted_relationships,
             "chunks": formatted_chunks,
             "references": references,
+            "images": images or [],
         },
         "metadata": metadata,
     }

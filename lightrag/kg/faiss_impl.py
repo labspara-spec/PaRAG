@@ -274,28 +274,27 @@ class FaissVectorDBStorage(BaseVectorStorage):
 
         # Prepare data for embedding
         list_data = []
-        contents = []
         for k, v in data.items():
-            # Store only known meta fields if needed
             meta = {mf: v[mf] for mf in self.meta_fields if mf in v}
             meta["__id__"] = k
             meta["__created_at__"] = current_time
             list_data.append(meta)
-            contents.append(v["content"])
 
-        # Split into batches for embedding if needed
-        batches = [
-            contents[i : i + self._max_batch_size]
-            for i in range(0, len(contents), self._max_batch_size)
-        ]
-
-        embedding_tasks = [
-            self.embedding_func(batch, context="document") for batch in batches
-        ]
-        embeddings_list = await asyncio.gather(*embedding_tasks)
-
-        # Flatten the list of arrays
-        embeddings = np.concatenate(embeddings_list, axis=0)
+        data_values = list(data.values())
+        if all("__vector__" in v for v in data_values):
+            embeddings = np.array(
+                [np.array(v["__vector__"], dtype=np.float32) for v in data_values]
+            )
+        else:
+            contents = [v["content"] for v in data_values]
+            batches = [
+                contents[i : i + self._max_batch_size]
+                for i in range(0, len(contents), self._max_batch_size)
+            ]
+            embeddings_list = await asyncio.gather(
+                *[self.embedding_func(batch, context="document") for batch in batches]
+            )
+            embeddings = np.concatenate(embeddings_list, axis=0)
         if len(embeddings) != len(list_data):
             logger.error(
                 f"[{self.workspace}] Embedding size mismatch. Embeddings: {len(embeddings)}, Data: {len(list_data)}"

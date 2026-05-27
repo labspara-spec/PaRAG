@@ -68,6 +68,8 @@ except ImportError:
 # the OS environment variables take precedence over the .env file
 load_dotenv(dotenv_path=".env", override=False)
 
+from lightrag.llm.costpilot import wrap_with_costpilot  # noqa: E402
+
 
 class InvalidResponseError(Exception):
     """Custom exception class for triggering retry mechanism"""
@@ -189,7 +191,7 @@ def create_openai_async_client(
         if timeout is not None:
             merged_configs["timeout"] = timeout
 
-        return AsyncAzureOpenAI(**merged_configs)
+        return wrap_with_costpilot(AsyncAzureOpenAI(**merged_configs))
     else:
         if not api_key:
             api_key = os.environ["OPENAI_API_KEY"]
@@ -222,7 +224,7 @@ def create_openai_async_client(
         if timeout is not None:
             merged_configs["timeout"] = timeout
 
-        return AsyncOpenAI(**merged_configs)
+        return wrap_with_costpilot(AsyncOpenAI(**merged_configs))
 
 
 # TODO LengthFinishReasonError should not persist into LLM cache

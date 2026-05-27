@@ -3770,32 +3770,29 @@ class PGVectorStorage(BaseVectorStorage):
             time.perf_counter() - list_data_build_start,
             len(list_data),
         )
-        contents = [v["content"] for v in data.values()]
-        embedding_split_start = time.perf_counter()
-        batches = [
-            contents[i : i + self._max_batch_size]
-            for i in range(0, len(contents), self._max_batch_size)
-        ]
-        performance_timing_log(
-            "[%s] embedding batch split completed in %.4fs batches=%s",
-            timing_label,
-            time.perf_counter() - embedding_split_start,
-            len(batches),
-        )
-
-        embedding_tasks = [
-            self.embedding_func(batch, context="document") for batch in batches
-        ]
+        data_values = list(data.values())
         embedding_generation_start = time.perf_counter()
-        embeddings_list = await asyncio.gather(*embedding_tasks)
+        if all("__vector__" in v for v in data_values):
+            embeddings = np.array(
+                [np.array(v["__vector__"], dtype=np.float32) for v in data_values]
+            )
+        else:
+            contents = [v["content"] for v in data_values]
+            batches = [
+                contents[i : i + self._max_batch_size]
+                for i in range(0, len(contents), self._max_batch_size)
+            ]
+            embeddings_list = await asyncio.gather(
+                *[self.embedding_func(batch, context="document") for batch in batches]
+            )
+            embeddings = np.concatenate(embeddings_list)
         performance_timing_log(
-            "[%s] embedding generation completed in %.4fs batches=%s",
+            "[%s] embedding generation completed in %.4fs records=%s",
             timing_label,
             time.perf_counter() - embedding_generation_start,
-            len(embeddings_list),
+            len(embeddings),
         )
 
-        embeddings = np.concatenate(embeddings_list)
         assert len(embeddings) == len(
             list_data
         ), f"Embedding count mismatch: expected {len(list_data)}, got {len(embeddings)}"

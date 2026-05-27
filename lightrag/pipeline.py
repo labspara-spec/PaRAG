@@ -1049,6 +1049,7 @@ class _PipelineMixin:
                 )
                 # Cleaning history_messages without breaking it as a shared list object
                 del pipeline_status["history_messages"][:]
+                self.emit_status_event("*", "*", "pipeline_start")
             else:
                 # Another process is busy, just set request flag and return
                 pipeline_status["request_pending"] = True
@@ -1426,6 +1427,7 @@ class _PipelineMixin:
                 pipeline_status["request_pending"] = False
                 return False
             pipeline_status["busy"] = False
+            self.emit_status_event("*", "*", "pipeline_end")
             return True
 
     @staticmethod
@@ -1525,6 +1527,7 @@ class _PipelineMixin:
                     status_doc=status_doc_w,
                     file_path=file_path_w,
                 )
+                self.emit_status_event(doc_id_w, file_path_w, "PARSING")
                 async with ctx.pipeline_status_lock:
                     log_message = f"Parsing ({engine}): {doc_id_w}"
                     logger.info(log_message)
@@ -1607,12 +1610,14 @@ class _PipelineMixin:
                 )
             except Exception as e:
                 logger.error(f"Parse worker failed ({engine}): {e}")
+                _fp = getattr(status_doc_w, "file_path", "unknown_source")
+                self.emit_status_event(doc_id_w, _fp, "FAILED", message=str(e))
                 try:
                     await self._upsert_doc_status_transition(
                         doc_id=doc_id_w,
                         status=DocStatus.FAILED,
                         status_doc=status_doc_w,
-                        file_path=getattr(status_doc_w, "file_path", "unknown_source"),
+                        file_path=_fp,
                         extra_fields={"error_msg": str(e)},
                     )
                 except Exception:
@@ -1666,6 +1671,7 @@ class _PipelineMixin:
                     status_doc=status_doc_w,
                     file_path=file_path_w,
                 )
+                self.emit_status_event(doc_id_w, file_path_w, "ANALYZING")
                 analyzed = await self.analyze_multimodal(
                     doc_id=doc_id_w,
                     file_path=file_path_w,
@@ -2107,6 +2113,13 @@ class _PipelineMixin:
                         chunking_result = list(chunking_result) + mm_chunks
                         extraction_meta["mm_chunks"] = len(mm_chunks)
 
+                    if self.image_embedding_func is not None:
+                        await self._embed_drawing_images(
+                            doc_id=doc_id,
+                            file_path=file_path,
+                            blocks_path=blocks_path,
+                        )
+
                 # Final hard guard before embedding: split any oversize
                 # chunk while preserving heading hierarchy metadata.
                 if (
@@ -2155,6 +2168,7 @@ class _PipelineMixin:
                 )
 
                 # Stage 1: persist doc_status PROCESSING + chunks in parallel.
+                self.emit_status_event(doc_id, file_path, "PROCESSING")
                 doc_status_task = asyncio.create_task(
                     self._upsert_doc_status_transition(
                         doc_id=doc_id,
@@ -2260,6 +2274,7 @@ class _PipelineMixin:
                         )
 
                     processing_end_time = int(time.time())
+                    self.emit_status_event(doc_id, file_path, "PROCESSED")
                     await self._upsert_doc_status_transition(
                         doc_id=doc_id,
                         status=DocStatus.PROCESSED,
@@ -4808,6 +4823,11 @@ class _PipelineMixin:
                     "id": str(item_id),
                     "refs": [{"type": kind, "id": str(item_id)}],
                 }
+                if kind == "drawing":
+                    raw_path = item.get("path") or item.get("img_path") or ""
+                    if raw_path:
+                        sidecar_block["image_path"] = raw_path
+                    sidecar_block["caption"] = item.get("caption", "")
                 cache_list = item.get("llm_cache_list")
                 cache_list = (
                     [str(c) for c in cache_list if str(c).strip()]
@@ -4829,3 +4849,133 @@ class _PipelineMixin:
                 order += 1
 
         return mm_chunks
+
+    async def _embed_drawing_images(
+        self,
+        doc_id: str,
+        file_path: str,
+        blocks_path: str,
+    ) -> None:
+        """Embed extracted drawing images and upsert to images_vdb.
+
+        Called after _build_mm_chunks_from_sidecars when image_embedding_func
+        is set. Reads drawings.json sidecar, uploads images to cloud if
+        cloud_provider is set, then embeds and stores in images_vdb.
+        """
+        if self.images_vdb is None or self.image_embedding_func is None:
+            return
+
+        block_file = Path(blocks_path)
+        base = str(block_file)
+        if base.endswith(".blocks.jsonl"):
+            base = base[: -len(".blocks.jsonl")]
+        sidecar_path = Path(base + ".drawings.json")
+        if not sidecar_path.exists():
+            return
+
+        try:
+            with open(sidecar_path, "r", encoding="utf-8") as f:
+                drawings = json.load(f)
+        except Exception as e:
+            logger.warning(f"[_embed_drawing_images] Failed to read {sidecar_path}: {e}")
+            return
+
+        sidecar_dir = sidecar_path.parent
+        items = drawings if isinstance(drawings, list) else drawings.get("drawings", [])
+
+        BATCH_SIZE = 6
+        batch_items: list[dict] = []
+        batch_meta: list[dict] = []
+
+        async def _flush_batch() -> None:
+            if not batch_items:
+                return
+            try:
+                from lightrag.llm.gemini import gemini_multimodal_embed
+                embeddings_arr = await gemini_multimodal_embed(batch_items)
+                records: dict[str, dict] = {}
+                for i, meta in enumerate(batch_meta):
+                    if i >= len(embeddings_arr):
+                        continue
+                    record_id = meta["record_id"]
+                    records[record_id] = {
+                        "content": meta["caption"] or meta["name"],
+                        "__vector__": embeddings_arr[i].tolist(),
+                        "image_path": meta["image_path"],
+                        "caption": meta["caption"],
+                        "doc_id": doc_id,
+                        "full_doc_id": doc_id,
+                        "file_path": file_path,
+                        "sidecar_id": meta["sidecar_id"],
+                    }
+                if records:
+                    await self.images_vdb.upsert(records)
+                    logger.info(f"[_embed_drawing_images] Upserted {len(records)} image embeddings for doc {doc_id}")
+            except Exception as e:
+                logger.warning(f"[_embed_drawing_images] Batch embed failed: {e}")
+            batch_items.clear()
+            batch_meta.clear()
+
+        for item in items:
+            llm_result = item.get("llm_analyze_result") or {}
+            if llm_result.get("status") != "success":
+                continue
+
+            item_id = str(item.get("id", ""))
+            caption = item.get("caption", "")
+            name = item.get("name", item_id)
+            raw_path = item.get("path") or item.get("img_path") or ""
+
+            # Resolve image path
+            img_path: Path | None = None
+            if raw_path:
+                candidate = Path(raw_path)
+                if not candidate.is_absolute():
+                    candidate = sidecar_dir / raw_path
+                if candidate.exists() and candidate.is_file():
+                    img_path = candidate
+
+            if img_path is None:
+                logger.debug(f"[_embed_drawing_images] Skipping {item_id}: image file not found at {raw_path!r}")
+                continue
+
+            # Read bytes
+            try:
+                img_bytes = img_path.read_bytes()
+            except Exception as e:
+                logger.warning(f"[_embed_drawing_images] Cannot read {img_path}: {e}")
+                continue
+
+            if not img_bytes:
+                continue
+
+            # Detect mime type
+            mime = mimetypes.guess_type(str(img_path))[0] or "image/png"
+            if not mime.startswith("image/"):
+                continue
+
+            # Upload to cloud or use local path
+            if self.cloud_provider is not None:
+                try:
+                    cloud_key = f"{doc_id}/{img_path.name}"
+                    final_path = await self.cloud_provider.upload(cloud_key, img_bytes, mime)
+                except Exception as e:
+                    logger.warning(f"[_embed_drawing_images] Cloud upload failed for {img_path.name}: {e}")
+                    final_path = str(img_path.resolve())
+            else:
+                final_path = str(img_path.resolve())
+
+            b64 = base64.b64encode(img_bytes).decode("ascii")
+            batch_items.append({"base64": b64, "mime_type": mime, "caption": caption})
+            batch_meta.append({
+                "record_id": f"{doc_id}-img-{item_id}",
+                "sidecar_id": item_id,
+                "caption": caption,
+                "name": name,
+                "image_path": final_path,
+            })
+
+            if len(batch_items) >= BATCH_SIZE:
+                await _flush_batch()
+
+        await _flush_batch()

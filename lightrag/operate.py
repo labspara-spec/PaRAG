@@ -28,6 +28,8 @@ from lightrag.utils import (
     use_llm_func_with_cache,
     get_env_value,
     get_llm_cache_identity,
+    semantic_cache_lookup,
+    semantic_cache_store,
     serialize_llm_cache_identity,
     update_chunk_cache_list,
     remove_think_tags,
@@ -3657,6 +3659,9 @@ async def kg_query(
     hashing_kv: BaseKVStorage | None = None,
     system_prompt: str | None = None,
     chunks_vdb: BaseVectorStorage = None,
+    images_vdb: BaseVectorStorage = None,
+    semantic_cache_vdb: BaseVectorStorage | None = None,
+    semantic_cache_kv: BaseKVStorage | None = None,
 ) -> QueryResult | None:
     """
     Execute knowledge graph query and return unified QueryResult object.
@@ -3690,6 +3695,25 @@ async def kg_query(
     """
     if not query:
         return QueryResult(content=PROMPTS["fail_response"])
+
+    # Semantic cache lookup (non-streaming, non-context-only queries only)
+    if (
+        not query_param.stream
+        and not query_param.only_need_context
+        and not query_param.only_need_prompt
+        and semantic_cache_vdb is not None
+        and semantic_cache_kv is not None
+    ):
+        cached = await semantic_cache_lookup(
+            query,
+            query_param.mode,
+            semantic_cache_vdb,
+            semantic_cache_kv,
+            global_config.get("semantic_cache_similarity_threshold", 0.95),
+            global_config.get("semantic_cache_ttl", 3600),
+        )
+        if cached is not None:
+            return cached
 
     # Apply higher priority (5) to query relation LLM function
     use_model_func = partial(global_config["role_llm_funcs"]["query"], _priority=5)
@@ -3733,6 +3757,23 @@ async def kg_query(
     if context_result is None:
         logger.info("[kg_query] No query context could be built; returning no-result.")
         return None
+
+    if images_vdb is not None and query_param.image_top_k > 0:
+        try:
+            image_hits = await images_vdb.query(query, top_k=query_param.image_top_k)
+            if image_hits:
+                context_result.raw_data.setdefault("data", {})["images"] = [
+                    {
+                        "image_id": hit.get("id", ""),
+                        "image_path": hit.get("image_path", ""),
+                        "caption": hit.get("caption", ""),
+                        "file_path": hit.get("file_path", ""),
+                        "score": hit.get("distance", 0.0),
+                    }
+                    for hit in image_hits
+                ]
+        except Exception as _img_err:
+            logger.debug(f"[kg_query] Image VDB search failed (non-fatal): {_img_err}")
 
     # Return different content based on query parameters
     if query_param.only_need_context and not query_param.only_need_prompt:
@@ -3845,7 +3886,12 @@ async def kg_query(
                 .strip()
             )
 
-        return QueryResult(content=response, raw_data=context_result.raw_data)
+        result = QueryResult(content=response, raw_data=context_result.raw_data)
+        if semantic_cache_vdb is not None and semantic_cache_kv is not None:
+            await semantic_cache_store(
+                query, query_param.mode, result, semantic_cache_vdb, semantic_cache_kv
+            )
+        return result
     else:
         # Streaming response (AsyncIterator)
         return QueryResult(
@@ -5537,6 +5583,7 @@ async def naive_query(
     hashing_kv: BaseKVStorage | None = None,
     system_prompt: str | None = None,
     return_raw_data: Literal[True] = True,
+    images_vdb: BaseVectorStorage = None,
 ) -> dict[str, Any]: ...
 
 
@@ -5549,6 +5596,7 @@ async def naive_query(
     hashing_kv: BaseKVStorage | None = None,
     system_prompt: str | None = None,
     return_raw_data: Literal[False] = False,
+    images_vdb: BaseVectorStorage = None,
 ) -> str | AsyncIterator[str]: ...
 
 
@@ -5559,6 +5607,9 @@ async def naive_query(
     global_config: dict[str, str],
     hashing_kv: BaseKVStorage | None = None,
     system_prompt: str | None = None,
+    images_vdb: BaseVectorStorage = None,
+    semantic_cache_vdb: BaseVectorStorage | None = None,
+    semantic_cache_kv: BaseKVStorage | None = None,
 ) -> QueryResult | None:
     """
     Execute naive query and return unified QueryResult object.
@@ -5583,6 +5634,25 @@ async def naive_query(
 
     if not query:
         return QueryResult(content=PROMPTS["fail_response"])
+
+    # Semantic cache lookup (non-streaming, non-context-only queries only)
+    if (
+        not query_param.stream
+        and not query_param.only_need_context
+        and not query_param.only_need_prompt
+        and semantic_cache_vdb is not None
+        and semantic_cache_kv is not None
+    ):
+        cached = await semantic_cache_lookup(
+            query,
+            query_param.mode,
+            semantic_cache_vdb,
+            semantic_cache_kv,
+            global_config.get("semantic_cache_similarity_threshold", 0.95),
+            global_config.get("semantic_cache_ttl", 3600),
+        )
+        if cached is not None:
+            return cached
 
     # Apply higher priority (5) to query relation LLM function
     use_model_func = partial(global_config["role_llm_funcs"]["query"], _priority=5)
@@ -5657,6 +5727,24 @@ async def naive_query(
 
     logger.info(f"Final context: {len(processed_chunks_with_ref_ids)} chunks")
 
+    image_results: list[dict] = []
+    if images_vdb is not None and query_param.image_top_k > 0:
+        try:
+            image_hits = await images_vdb.query(query, top_k=query_param.image_top_k)
+            if image_hits:
+                image_results = [
+                    {
+                        "image_id": hit.get("id", ""),
+                        "image_path": hit.get("image_path", ""),
+                        "caption": hit.get("caption", ""),
+                        "file_path": hit.get("file_path", ""),
+                        "score": hit.get("distance", 0.0),
+                    }
+                    for hit in image_hits
+                ]
+        except Exception as _img_err:
+            logger.debug(f"[naive_query] Image VDB search failed (non-fatal): {_img_err}")
+
     # Build raw data structure for naive mode using processed chunks with reference IDs
     raw_data = convert_to_user_format(
         [],  # naive mode has no entities
@@ -5664,6 +5752,7 @@ async def naive_query(
         processed_chunks_with_ref_ids,
         reference_list,
         "naive",
+        images=image_results,
     )
 
     # Add complete metadata for naive mode
@@ -5790,7 +5879,12 @@ async def naive_query(
                 .strip()
             )
 
-        return QueryResult(content=response, raw_data=raw_data)
+        result = QueryResult(content=response, raw_data=raw_data)
+        if semantic_cache_vdb is not None and semantic_cache_kv is not None:
+            await semantic_cache_store(
+                query, query_param.mode, result, semantic_cache_vdb, semantic_cache_kv
+            )
+        return result
     else:
         # Streaming response (AsyncIterator)
         return QueryResult(

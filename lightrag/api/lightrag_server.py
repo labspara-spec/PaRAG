@@ -58,6 +58,8 @@ from lightrag.parser.routing import (
 from lightrag.parser.external.mineru.cache import MinerUParserOptions
 from lightrag.api.routers.query_routes import create_query_routes
 from lightrag.api.routers.graph_routes import create_graph_routes
+from lightrag.api.routers.webhook_routes import create_webhook_routes
+from lightrag.storage.cloud import get_cloud_provider
 from lightrag.utils import logger, set_verbose_debug
 from lightrag.kg.shared_storage import (
     get_namespace_data,
@@ -757,6 +759,202 @@ def check_frontend_build():
         return (True, False)  # Assume assets exist and up-to-date on error
 
 
+def build_rag_factory(args, event_bus=None):
+    """
+    Build an async per-workspace LightRAG factory from config args.
+
+    Used by ``worker_service`` to create instances without a full API server.
+    Returns an async callable::
+
+        factory(workspace: str) -> LightRAG   # already initialized
+
+    Role-specific LLM overrides and rerank are omitted; configure them via
+    env vars or call ``rag.register_role_llm_builder()`` after creation.
+    """
+    from lightrag.api.config import global_args as _ga
+
+    # Merge: start from full API config, overlay explicit worker args.
+    if not hasattr(args, "llm_binding"):
+        import argparse as _ap
+        merged = _ap.Namespace(**vars(_ga))
+        for k, v in vars(args).items():
+            if v is not None:
+                setattr(merged, k, v)
+        args = merged
+
+    llm_timeout = getattr(args, "llm_timeout", 120)
+    embedding_timeout = getattr(args, "embedding_timeout", 60)
+    binding = getattr(args, "llm_binding", "openai")
+    emb_binding = getattr(args, "embedding_binding", "openai")
+
+    # ------------------------------------------------------------------ LLM
+    if binding == "lollms":
+        from lightrag.llm.lollms import lollms_model_complete as _llm
+        llm_func = _llm
+    elif binding == "bedrock":
+        from lightrag.llm.bedrock import bedrock_complete_if_cache as _bedrock
+
+        async def llm_func(prompt, system_prompt=None, history_messages=None, **kw):
+            if history_messages is None:
+                history_messages = []
+            return await _bedrock(
+                args.llm_model, prompt,
+                system_prompt=system_prompt,
+                history_messages=history_messages,
+                endpoint_url=args.llm_binding_host,
+                aws_region=getattr(args, "aws_region", None),
+                aws_access_key_id=getattr(args, "aws_access_key_id", None),
+                aws_secret_access_key=getattr(args, "aws_secret_access_key", None),
+                aws_session_token=getattr(args, "aws_session_token", None),
+                **kw,
+            )
+    elif binding == "gemini":
+        from lightrag.llm.gemini import gemini_complete_if_cache as _gemini
+
+        async def llm_func(prompt, system_prompt=None, history_messages=None, **kw):
+            if history_messages is None:
+                history_messages = []
+            kw["timeout"] = llm_timeout
+            return await _gemini(
+                args.llm_model, prompt,
+                system_prompt=system_prompt,
+                history_messages=history_messages,
+                api_key=args.llm_binding_api_key,
+                base_url=args.llm_binding_host,
+                **kw,
+            )
+    elif binding == "azure_openai":
+        from lightrag.llm.azure_openai import azure_openai_complete_if_cache as _az
+
+        async def llm_func(prompt, system_prompt=None, history_messages=None, **kw):
+            if history_messages is None:
+                history_messages = []
+            kw["timeout"] = llm_timeout
+            return await _az(
+                args.llm_model, prompt,
+                system_prompt=system_prompt,
+                history_messages=history_messages,
+                base_url=args.llm_binding_host,
+                api_key=args.llm_binding_api_key,
+                api_version=os.getenv("AZURE_OPENAI_API_VERSION", "2024-08-01-preview"),
+                **kw,
+            )
+    else:  # openai / compatible
+        from lightrag.llm.openai import openai_complete_if_cache as _oai
+
+        async def llm_func(prompt, system_prompt=None, history_messages=None, **kw):
+            if history_messages is None:
+                history_messages = []
+            kw["timeout"] = llm_timeout
+            return await _oai(
+                args.llm_model, prompt,
+                system_prompt=system_prompt,
+                history_messages=history_messages,
+                base_url=args.llm_binding_host,
+                api_key=args.llm_binding_api_key,
+                **kw,
+            )
+
+    # --------------------------------------------------------------- Embedding
+    from lightrag.utils import EmbeddingFunc as _EF
+    _emb_model = getattr(args, "embedding_model", None)
+    _emb_host = getattr(args, "embedding_binding_host", None)
+    _emb_api_key = getattr(args, "embedding_binding_api_key", None)
+    _emb_dim = getattr(args, "embedding_dim", None)
+
+    async def _emb_inner(texts, embedding_dim=None, context="document"):
+        if emb_binding == "gemini":
+            from lightrag.llm.gemini import gemini_embed
+            fn = gemini_embed.func if isinstance(gemini_embed, _EF) else gemini_embed
+            kw = {"texts": texts, "base_url": _emb_host, "api_key": _emb_api_key, "embedding_dim": embedding_dim}
+            if _emb_model:
+                kw["model"] = _emb_model
+            return await fn(**kw)
+        elif emb_binding == "jina":
+            from lightrag.llm.jina import jina_embed
+            fn = jina_embed.func if isinstance(jina_embed, _EF) else jina_embed
+            kw = {"texts": texts, "embedding_dim": embedding_dim, "base_url": _emb_host, "api_key": _emb_api_key}
+            if _emb_model:
+                kw["model"] = _emb_model
+            return await fn(**kw)
+        elif emb_binding == "azure_openai":
+            from lightrag.llm.azure_openai import azure_openai_embed
+            fn = azure_openai_embed.func if isinstance(azure_openai_embed, _EF) else azure_openai_embed
+            kw = {"texts": texts, "api_key": _emb_api_key, "embedding_dim": embedding_dim}
+            if _emb_model:
+                kw["model"] = _emb_model
+            return await fn(**kw)
+        elif emb_binding == "bedrock":
+            from lightrag.llm.bedrock import bedrock_embed
+            fn = bedrock_embed.func if isinstance(bedrock_embed, _EF) else bedrock_embed
+            kw = {
+                "texts": texts,
+                "aws_region": getattr(args, "aws_region", None),
+                "aws_access_key_id": getattr(args, "aws_access_key_id", None),
+                "aws_secret_access_key": getattr(args, "aws_secret_access_key", None),
+                "aws_session_token": getattr(args, "aws_session_token", None),
+            }
+            if _emb_host:
+                kw["endpoint_url"] = _emb_host
+            if _emb_model:
+                kw["model"] = _emb_model
+            return await fn(**kw)
+        elif emb_binding == "voyageai":
+            from lightrag.llm.voyageai import voyageai_embed
+            fn = voyageai_embed.func if isinstance(voyageai_embed, _EF) else voyageai_embed
+            kw = {"texts": texts, "api_key": _emb_api_key, "embedding_dim": embedding_dim}
+            if _emb_model:
+                kw["model"] = _emb_model
+            return await fn(**kw)
+        elif emb_binding == "lollms":
+            from lightrag.llm.lollms import lollms_embed
+            fn = lollms_embed.func if isinstance(lollms_embed, _EF) else lollms_embed
+            return await fn(texts, base_url=_emb_host, api_key=_emb_api_key)
+        else:  # openai / compatible
+            from lightrag.llm.openai import openai_embed
+            fn = openai_embed.func if isinstance(openai_embed, _EF) else openai_embed
+            kw = {"texts": texts, "base_url": _emb_host, "api_key": _emb_api_key, "embedding_dim": embedding_dim}
+            if _emb_model:
+                kw["model"] = _emb_model
+            return await fn(**kw)
+
+    embedding_func = _EF(embedding_dim=_emb_dim, func=_emb_inner, model_name=_emb_model)
+
+    # ----------------------------------------------------------- LightRAG factory
+    async def factory(workspace: str) -> "LightRAG":
+        instance = LightRAG(
+            working_dir=args.working_dir,
+            workspace=workspace,
+            llm_model_func=llm_func,
+            llm_model_name=args.llm_model,
+            llm_model_max_async=args.max_async,
+            embedding_func=embedding_func,
+            default_llm_timeout=llm_timeout,
+            default_embedding_timeout=embedding_timeout,
+            kv_storage=args.kv_storage,
+            graph_storage=args.graph_storage,
+            vector_storage=args.vector_storage,
+            doc_status_storage=args.doc_status_storage,
+            vector_db_storage_cls_kwargs={
+                "cosine_better_than_threshold": args.cosine_threshold
+            },
+            enable_llm_cache_for_entity_extract=args.enable_llm_cache_for_extract,
+            enable_llm_cache=args.enable_llm_cache,
+            enable_semantic_cache=args.enable_semantic_cache,
+            semantic_cache_similarity_threshold=args.semantic_cache_similarity_threshold,
+            semantic_cache_ttl=args.semantic_cache_ttl,
+            max_parallel_insert=args.max_parallel_insert,
+            addon_params={"language": args.summary_language},
+        )
+        await instance.initialize_storages()
+        await instance.check_and_migrate_data()
+        if event_bus is not None:
+            instance.event_bus = event_bus
+        return instance
+
+    return factory
+
+
 def create_app(args):
     # Check frontend build first and get status
     webui_assets_exist, is_frontend_outdated = check_frontend_build()
@@ -819,34 +1017,53 @@ def create_app(args):
     # Initialize document manager with workspace support for data isolation
     doc_manager = DocumentManager(args.input_dir, workspace=args.workspace)
 
+    # Initialise cloud storage provider (None = local input_dir mode)
+    cloud_provider = get_cloud_provider(args)
+
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         """Lifespan context manager for startup and shutdown events"""
-        # Store background tasks
         app.state.background_tasks = set()
 
-        try:
-            # Initialize database connections
-            # Note: initialize_storages() now auto-initializes pipeline_status for rag.workspace
-            await rag.initialize_storages()
+        # Cloud mode: connect to Redis for job queue and SSE pub/sub
+        if getattr(args, "cloud_mode", False):
+            try:
+                import redis.asyncio as aioredis
+                from lightrag.api.job_queue import DocumentJobQueue
+                from lightrag.api.sse_bus import RedisSSEBus
+                _redis = aioredis.from_url(args.redis_uri, decode_responses=False)
+                _jq = DocumentJobQueue(_redis)
+                await _jq.ensure_group()
+                app.state.redis_client = _redis
+                app.state.job_queue = _jq
+                app.state.sse_bus = RedisSSEBus(args.redis_uri)
+                app.state.cloud_mode = True
+                logger.info("Cloud mode enabled; Redis=%s", args.redis_uri)
+            except ImportError:
+                logger.warning("redis not installed — cloud mode disabled, falling back to local SSE bus")
+                from lightrag.api.sse_bus import LocalSSEBus
+                app.state.sse_bus = LocalSSEBus()
+                app.state.cloud_mode = False
+        else:
+            from lightrag.api.sse_bus import LocalSSEBus
+            app.state.sse_bus = LocalSSEBus()
+            app.state.cloud_mode = False
 
-            # Data migration regardless of storage implementation
-            await rag.check_and_migrate_data()
+        try:
+            # Pre-warm default workspace and start background cleanup sweep
+            await pool.initialize(args.workspace)
 
             ASCIIColors.green("\nServer is ready to accept connections! 🚀\n")
 
             yield
 
         finally:
-            # Clean up database connections
-            await rag.finalize_storages()
+            await pool.shutdown()
 
             if "LIGHTRAG_GUNICORN_MODE" not in os.environ:
-                # Only perform cleanup in Uvicorn single-process mode
-                logger.debug("Unvicorn Mode: finalizing shared storage...")
+                logger.debug("Uvicorn Mode: finalizing shared storage...")
                 finalize_share_data()
             else:
-                # In Gunicorn mode with preload_app=True, cleanup is handled by on_exit hooks
                 logger.debug(
                     "Gunicorn Mode: postpone shared storage finalization to master process"
                 )
@@ -1855,85 +2072,173 @@ def create_app(args):
         for spec in ROLES
     }
 
-    # Initialize RAG with unified configuration
-    try:
-        rag = LightRAG(
-            working_dir=args.working_dir,
-            workspace=args.workspace,
-            llm_model_func=create_llm_model_func(args.llm_binding),
-            llm_model_name=args.llm_model,
-            llm_model_max_async=args.max_async,
-            summary_max_tokens=args.summary_max_tokens,
-            summary_context_size=args.summary_context_size,
-            chunk_token_size=int(args.chunk_size),
-            chunk_overlap_token_size=int(args.chunk_overlap_size),
-            llm_model_kwargs=create_llm_model_kwargs(
-                args.llm_binding, args, llm_timeout
-            ),
-            embedding_func=embedding_func,
-            default_llm_timeout=llm_timeout,
-            default_embedding_timeout=embedding_timeout,
-            kv_storage=args.kv_storage,
-            graph_storage=args.graph_storage,
-            vector_storage=args.vector_storage,
-            doc_status_storage=args.doc_status_storage,
-            vector_db_storage_cls_kwargs={
-                "cosine_better_than_threshold": args.cosine_threshold
-            },
-            enable_llm_cache_for_entity_extract=args.enable_llm_cache_for_extract,
-            enable_llm_cache=args.enable_llm_cache,
-            vlm_process_enable=args.vlm_process_enable,
-            rerank_model_func=rerank_model_func,
-            rerank_model_max_async=args.rerank_max_async,
-            default_rerank_timeout=args.rerank_timeout,
-            max_parallel_insert=args.max_parallel_insert,
-            max_graph_nodes=args.max_graph_nodes,
-            addon_params=addon_params,
-            role_llm_configs={
-                spec.name: RoleLLMConfig(
-                    func=role_llm_configs[spec.name]["func"],
-                    kwargs=role_llm_configs[spec.name]["kwargs"],
-                    max_async=role_llm_configs[spec.name]["max_async"],
-                    timeout=role_llm_configs[spec.name]["timeout"],
-                    metadata={
-                        "base_binding": args.llm_binding,
-                        "binding": role_llm_configs[spec.name]["binding"],
-                        "model": role_llm_configs[spec.name]["model"],
-                        "host": role_llm_configs[spec.name]["host"],
-                        "api_key": role_llm_configs[spec.name]["api_key"],
-                        "provider_options": role_llm_configs[spec.name][
-                            "provider_options"
-                        ],
-                        "bedrock_aws_options": role_llm_configs[spec.name][
-                            "bedrock_aws_options"
-                        ],
-                        "is_cross_provider": role_llm_configs[spec.name][
-                            "is_cross_provider"
-                        ],
-                    },
-                )
-                for spec in ROLES
-            },
-        )
-    except Exception as e:
-        logger.error(f"Failed to initialize LightRAG: {e}")
-        raise
+    def _build_image_embedding_func():
+        """Return an EmbeddingFunc for image embeddings, or None if disabled."""
+        if os.getenv("GEMINI_IMAGE_EMBED_ENABLE", "false").lower() != "true":
+            return None
+        try:
+            from lightrag.llm.gemini import gemini_multimodal_embed_text
+            return gemini_multimodal_embed_text  # already an EmbeddingFunc (3072-dim)
+        except Exception as e:
+            logger.warning(f"Failed to build image embedding func: {e}")
+            return None
 
-    _log_role_provider_options(rag)
+    # Factory creates a fully-configured LightRAG instance for any workspace.
+    # All LLM / embedding / role closures are captured once per process start
+    # and shared safely across instances (they are stateless callables).
+    _role_opts_logged = [False]
 
-    rag.register_role_llm_builder(
-        lambda role, meta: (
-            create_role_llm_func(role, meta),
-            create_role_llm_model_kwargs(role, meta),
+    async def _rag_factory(workspace: str) -> LightRAG:
+        try:
+            instance = LightRAG(
+                working_dir=args.working_dir,
+                workspace=workspace,
+                llm_model_func=create_llm_model_func(args.llm_binding),
+                llm_model_name=args.llm_model,
+                llm_model_max_async=args.max_async,
+                summary_max_tokens=args.summary_max_tokens,
+                summary_context_size=args.summary_context_size,
+                chunk_token_size=int(args.chunk_size),
+                chunk_overlap_token_size=int(args.chunk_overlap_size),
+                llm_model_kwargs=create_llm_model_kwargs(
+                    args.llm_binding, args, llm_timeout
+                ),
+                embedding_func=embedding_func,
+                default_llm_timeout=llm_timeout,
+                default_embedding_timeout=embedding_timeout,
+                kv_storage=args.kv_storage,
+                graph_storage=args.graph_storage,
+                vector_storage=args.vector_storage,
+                doc_status_storage=args.doc_status_storage,
+                vector_db_storage_cls_kwargs={
+                    "cosine_better_than_threshold": args.cosine_threshold
+                },
+                enable_llm_cache_for_entity_extract=args.enable_llm_cache_for_extract,
+                enable_llm_cache=args.enable_llm_cache,
+                enable_semantic_cache=args.enable_semantic_cache,
+                semantic_cache_similarity_threshold=args.semantic_cache_similarity_threshold,
+                semantic_cache_ttl=args.semantic_cache_ttl,
+                vlm_process_enable=args.vlm_process_enable,
+                image_embedding_func=_build_image_embedding_func(),
+                cloud_provider=cloud_provider,
+                rerank_model_func=rerank_model_func,
+                rerank_model_max_async=args.rerank_max_async,
+                default_rerank_timeout=args.rerank_timeout,
+                max_parallel_insert=args.max_parallel_insert,
+                max_graph_nodes=args.max_graph_nodes,
+                addon_params=addon_params,
+                role_llm_configs={
+                    spec.name: RoleLLMConfig(
+                        func=role_llm_configs[spec.name]["func"],
+                        kwargs=role_llm_configs[spec.name]["kwargs"],
+                        max_async=role_llm_configs[spec.name]["max_async"],
+                        timeout=role_llm_configs[spec.name]["timeout"],
+                        metadata={
+                            "base_binding": args.llm_binding,
+                            "binding": role_llm_configs[spec.name]["binding"],
+                            "model": role_llm_configs[spec.name]["model"],
+                            "host": role_llm_configs[spec.name]["host"],
+                            "api_key": role_llm_configs[spec.name]["api_key"],
+                            "provider_options": role_llm_configs[spec.name]["provider_options"],
+                            "bedrock_aws_options": role_llm_configs[spec.name]["bedrock_aws_options"],
+                            "is_cross_provider": role_llm_configs[spec.name]["is_cross_provider"],
+                        },
+                    )
+                    for spec in ROLES
+                },
+            )
+        except Exception as e:
+            logger.error(f"Failed to initialize LightRAG for workspace={workspace!r}: {e}")
+            raise
+        await instance.initialize_storages()
+        await instance.check_and_migrate_data()
+        instance.register_role_llm_builder(
+            lambda role, meta: (
+                create_role_llm_func(role, meta),
+                create_role_llm_model_kwargs(role, meta),
+            )
         )
+        if not _role_opts_logged[0]:
+            _log_role_provider_options(instance)
+            _role_opts_logged[0] = True
+        # Wire the shared SSE bus so emit_status_event reaches SSE subscribers.
+        # In local mode app.state.sse_bus is a LocalSSEBus; in cloud mode the
+        # pipeline never runs on API pods so this assignment is a no-op.
+        if hasattr(app.state, "sse_bus"):
+            instance.event_bus = app.state.sse_bus
+        return instance
+
+    from lightrag.api.pool import LightRAGPool
+
+    pool = LightRAGPool(
+        factory=_rag_factory,
+        max_size=getattr(args, "pool_max_size", 8),
+        min_size=getattr(args, "pool_min_size", 1),
+        idle_timeout=getattr(args, "pool_idle_timeout", 300.0),
+        cleanup_interval=getattr(args, "pool_cleanup_interval", 60.0),
     )
 
     # Add routes
     # root_path is set on the app for reverse proxy support;
     # routes stay at their natural paths and are prefixed by the proxy or uvicorn --root-path
-    app.include_router(create_document_routes(rag, doc_manager, api_key))
-    app.include_router(create_query_routes(rag, api_key, args.top_k))
-    app.include_router(create_graph_routes(rag, api_key))
+    app.include_router(create_document_routes(pool, doc_manager, api_key, cloud_provider=cloud_provider))
+    app.include_router(create_query_routes(pool, api_key, args.top_k))
+    app.include_router(create_graph_routes(pool, api_key))
+    app.include_router(create_webhook_routes(pool, doc_manager, cloud_provider, api_key))
+
+    @app.get(
+        "/documents/images/{image_id}",
+        tags=["documents"],
+        summary="Serve an extracted image by its embedding ID",
+    )
+    async def serve_image(image_id: str, workspace: str = "default"):
+        """Return image bytes (local) or redirect to a signed URL (cloud).
+
+        image_id is the key used when upserting to images_vdb, e.g.
+        ``{doc_id}-img-{sidecar_id}``.
+        """
+        import mimetypes as _mimetypes
+        from pathlib import Path as _Path
+
+        rag = await pool.get(workspace)
+        if rag.images_vdb is None:
+            raise HTTPException(status_code=404, detail="Image embedding not enabled")
+        try:
+            record = await rag.images_vdb.get_by_id(image_id)
+        except Exception:
+            record = None
+        if not record:
+            raise HTTPException(status_code=404, detail=f"Image {image_id!r} not found")
+        image_path = record.get("image_path") or ""
+        if not image_path:
+            raise HTTPException(status_code=404, detail="image_path missing in record")
+
+        expiry = int(os.getenv("IMAGE_SIGNED_URL_EXPIRY_SECONDS", "3600"))
+
+        if image_path.startswith(("gs://", "s3://", "azure://")):
+            if cloud_provider is not None:
+                signed_url = await cloud_provider.get_image_url(image_path, expiry)
+                return RedirectResponse(url=signed_url, status_code=302)
+            raise HTTPException(status_code=500, detail="Cloud provider not configured")
+
+        local_path = _Path(image_path)
+        if not local_path.exists():
+            raise HTTPException(status_code=404, detail=f"Image file not found: {image_path}")
+        content_type = _mimetypes.guess_type(str(local_path))[0] or "image/png"
+        return Response(content=local_path.read_bytes(), media_type=content_type)
+
+    @app.get(
+        "/pool/status",
+        dependencies=[Depends(combined_auth)],
+        summary="LightRAG instance pool status",
+        tags=["system"],
+    )
+    async def get_pool_status():
+        """Live snapshot of the LightRAG instance pool (workspaces, ref counts, idle time)."""
+        return {
+            "instances": pool.status,
+            "count": pool.instance_count(),
+        }
 
     # Custom Swagger UI endpoint for offline support
     @app.get("/docs", include_in_schema=False)
@@ -2128,6 +2433,14 @@ def create_app(args):
             # Cleanup expired keyed locks and get status
             keyed_lock_info = cleanup_keyed_lock()
 
+            # Acquire workspace instance for rag-specific metrics
+            async with pool.acquire(workspace) as _rag:
+                _storage_workspaces = _get_storage_workspaces(_rag)
+                _role_llm_config = _rag.get_llm_role_config()
+                _llm_queue_status = await _rag.get_llm_queue_status(include_base=True)
+                _embedding_queue_status = await _rag.get_embedding_queue_status()
+                _rerank_queue_status = await _rag.get_rerank_queue_status()
+
             return {
                 "status": "healthy",
                 "webui_available": webui_assets_exist,
@@ -2150,9 +2463,13 @@ def create_app(args):
                     "vector_storage": args.vector_storage,
                     "enable_llm_cache_for_extract": args.enable_llm_cache_for_extract,
                     "enable_llm_cache": args.enable_llm_cache,
+                    "enable_semantic_cache": args.enable_semantic_cache,
+                    "semantic_cache_similarity_threshold": args.semantic_cache_similarity_threshold,
+                    "semantic_cache_ttl": args.semantic_cache_ttl,
                     "vlm_process_enable": args.vlm_process_enable,
                     "workspace": default_workspace,
-                    "storage_workspaces": _get_storage_workspaces(rag),
+                    "storage_workspaces": _storage_workspaces,
+                    "role_llm_config": _role_llm_config,
                     "max_graph_nodes": args.max_graph_nodes,
                     # Rerank configuration
                     "enable_rerank": rerank_model_func is not None,
@@ -2175,7 +2492,6 @@ def create_app(args):
                     "embedding_func_max_async": args.embedding_func_max_async,
                     "embedding_batch_num": args.embedding_batch_num,
                     "embedding_timeout": args.embedding_timeout,
-                    "role_llm_config": rag.get_llm_role_config(),
                     # Parser routing snapshot — surfaced in the WebUI status card
                     "parser_routing": parser_rules_from_env(),
                     "mineru": _build_mineru_status(),
@@ -2188,9 +2504,9 @@ def create_app(args):
                 "pipeline_destructive_busy": pipeline_destructive_busy,
                 "pipeline_pending_enqueues": pipeline_pending_enqueues,
                 "keyed_locks": keyed_lock_info,
-                "llm_queue_status": await rag.get_llm_queue_status(include_base=True),
-                "embedding_queue_status": await rag.get_embedding_queue_status(),
-                "rerank_queue_status": await rag.get_rerank_queue_status(),
+                "llm_queue_status": _llm_queue_status,
+                "embedding_queue_status": _embedding_queue_status,
+                "rerank_queue_status": _rerank_queue_status,
                 "core_version": core_version,
                 "api_version": api_version_display,
                 "webui_title": webui_title,

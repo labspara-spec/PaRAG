@@ -186,6 +186,13 @@ class LightRAG(_RoleLLMMixin, _StorageMigrationMixin, _PipelineMixin):
     workspace: str = field(default_factory=lambda: os.getenv("WORKSPACE", ""))
     """Workspace for data isolation. Defaults to empty string if WORKSPACE environment variable is not set."""
 
+    # SSE event bus — injected by the pool / server at creation time.
+    # LocalSSEBus (default) works in single-process deployments; RedisSSEBus
+    # is used in cloud mode.  Typed as Any to avoid a circular import with the
+    # api layer; callers only use .publish() which both implement.
+    event_bus: Any = field(default=None)
+    """SSE event bus for streaming pipeline status. Set by server/pool at instance creation."""
+
     # ---
     # TODO: Deprecated, use setup_logger in utils.py instead
     log_level: int | None = field(default=None)
@@ -496,6 +503,21 @@ class LightRAG(_RoleLLMMixin, _StorageMigrationMixin, _PipelineMixin):
     enable_llm_cache_for_entity_extract: bool = field(default=True)
     """If True, enables caching for entity extraction steps to reduce LLM costs."""
 
+    enable_semantic_cache: bool = field(
+        default=os.getenv("ENABLE_SEMANTIC_CACHE", "false").lower() == "true"
+    )
+    """If True, enables semantic (vector-similarity) caching for query responses."""
+
+    semantic_cache_similarity_threshold: float = field(
+        default=float(os.getenv("SEMANTIC_CACHE_SIMILARITY_THRESHOLD", "0.95"))
+    )
+    """Minimum cosine similarity score for a semantic cache hit (0.0–1.0)."""
+
+    semantic_cache_ttl: int = field(
+        default=int(os.getenv("SEMANTIC_CACHE_TTL", "3600"))
+    )
+    """TTL in seconds for semantic cache entries. 0 = no expiry."""
+
     vlm_process_enable: bool = field(
         default_factory=lambda: get_env_value("VLM_PROCESS_ENABLE", False, bool)
     )
@@ -504,6 +526,23 @@ class LightRAG(_RoleLLMMixin, _StorageMigrationMixin, _PipelineMixin):
     When False, the pipeline emits a warning and skips every multimodal item
     without invoking the VLM. When True, the configured VLM binding must
     support image inputs.
+    """
+
+    image_embedding_func: EmbeddingFunc | None = field(default=None)
+    """Embedding function for images (3072-dim multimodal space).
+
+    When set, extracted drawing images are embedded via this function and stored
+    in ``images_vdb``. Query responses will include a ``data.images`` list.
+    Use ``gemini_multimodal_embed_text`` wrapped as an EmbeddingFunc.
+    """
+
+    cloud_provider: Any = field(default=None)
+    """CloudStorageProvider instance for uploading extracted images.
+
+    When set alongside ``image_embedding_func``, each extracted image is
+    uploaded to cloud storage and the ``image_path`` stored in ``images_vdb``
+    will be a cloud URI (``gs://``, ``s3://``, ``azure://``).
+    Obtain via ``get_cloud_provider()`` from ``lightrag.storage.cloud``.
     """
 
     # Extensions
@@ -781,11 +820,25 @@ class LightRAG(_RoleLLMMixin, _StorageMigrationMixin, _PipelineMixin):
 
     def _build_global_config(self) -> dict[str, Any]:
         self._ensure_addon_params_cache()
+        # Temporarily null out cloud_provider so asdict() doesn't deep-copy it.
+        # asdict() deep-copies non-dataclass fields; providers with live connections fail.
+        saved_provider = self.cloud_provider
+        if saved_provider is not None:
+            self.cloud_provider = None
         global_config = asdict(self)
+        if saved_provider is not None:
+            self.cloud_provider = saved_provider
         global_config.pop("_addon_params", None)
         global_config.pop("_addon_params_dirty", None)
         global_config.pop("_cached_entity_extraction_use_json", None)
         global_config["addon_params"] = dict(self._addon_params)
+        # Restore live objects that asdict() serialises to dicts or deep-copies.
+        # image_embedding_func is an EmbeddingFunc dataclass → asdict recurses it.
+        # cloud_provider is an arbitrary object → asdict deep-copies it (expensive,
+        # and may fail for storage clients).  Neither is consumed from global_config,
+        # so pop cloud_provider and restore image_embedding_func as the live object.
+        global_config["image_embedding_func"] = self.image_embedding_func
+        global_config.pop("cloud_provider", None)
         # Inject runtime per-role wrapped LLM funcs (callable; not part of asdict
         # because they live in the private _role_llm_states map). The first
         # _build_global_config() call from __post_init__ runs before the role
@@ -1033,6 +1086,38 @@ class LightRAG(_RoleLLMMixin, _StorageMigrationMixin, _PipelineMixin):
             meta_fields={"full_doc_id", "content", "file_path"} | CHUNK_EXTENDED_META_FIELDS,
         )
 
+        self.images_vdb: BaseVectorStorage | None = None
+        if self.image_embedding_func is not None:
+            wrapped_image_func = priority_limit_async_func_call(
+                self.embedding_func_max_async,
+                llm_timeout=self.default_embedding_timeout,
+                queue_name="Image embedding func",
+            )(self.image_embedding_func.func)
+            self.image_embedding_func = replace(self.image_embedding_func, func=wrapped_image_func)
+            self.images_vdb = self.vector_db_storage_cls(  # type: ignore
+                namespace=NameSpace.VECTOR_STORE_IMAGES,
+                workspace=self.workspace,
+                embedding_func=self.image_embedding_func,
+                meta_fields={"image_path", "caption", "doc_id", "full_doc_id", "file_path", "sidecar_id"},
+            )
+
+        # Initialize semantic cache storages (opt-in; requires embedding_func)
+        self.semantic_cache_vdb: BaseVectorStorage | None = None
+        self.semantic_cache_kv: BaseKVStorage | None = None
+        if self.enable_semantic_cache and self.embedding_func is not None:
+            self.semantic_cache_vdb = self.vector_db_storage_cls(  # type: ignore
+                namespace=NameSpace.VECTOR_STORE_SEMANTIC_CACHE,
+                workspace=self.workspace,
+                embedding_func=self.embedding_func,
+                meta_fields={"mode", "created_at"},
+            )
+            self.semantic_cache_kv = self.key_string_value_json_storage_cls(  # type: ignore
+                namespace=NameSpace.KV_STORE_SEMANTIC_CACHE,
+                workspace=self.workspace,
+                global_config=global_config,
+                embedding_func=self.embedding_func,
+            )
+
         # Initialize document status storage
         self.doc_status: DocStatusStorage = self.doc_status_storage_cls(
             namespace=NameSpace.DOC_STATUS,
@@ -1108,6 +1193,43 @@ class LightRAG(_RoleLLMMixin, _StorageMigrationMixin, _PipelineMixin):
 
         self._storages_status = StoragesStatus.CREATED
 
+        # Lazily create a default LocalSSEBus if none was injected by the pool/server.
+        # Import here to avoid circular imports with the api layer.
+        if self.event_bus is None:
+            from lightrag.api.sse_bus import LocalSSEBus
+            self.event_bus = LocalSSEBus()
+
+    def emit_status_event(
+        self,
+        doc_id: str,
+        file_path: str,
+        status: str,
+        message: str = "",
+        **extra: Any,
+    ) -> None:
+        """Publish a document status-change event to all SSE subscribers for this workspace.
+
+        Safe to call from sync pipeline worker tasks — the underlying bus
+        publish() method is synchronous (LocalSSEBus) or schedules a task
+        (RedisPublishBus). Errors are silently swallowed so pipeline never
+        stalls due to SSE bus failures.
+        """
+        if self.event_bus is None:
+            return
+        try:
+            event: dict[str, Any] = {
+                "event": "status_change",
+                "doc_id": doc_id,
+                "file_path": file_path,
+                "status": status,
+                "message": message,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                **extra,
+            }
+            self.event_bus.publish(self.workspace, event)
+        except Exception:
+            pass  # never let SSE errors disrupt the pipeline
+
     async def initialize_storages(self):
         """Storage initialization must be called one by one to prevent deadlock"""
         if self._storages_status == StoragesStatus.CREATED:
@@ -1137,9 +1259,12 @@ class LightRAG(_RoleLLMMixin, _StorageMigrationMixin, _PipelineMixin):
                 self.entities_vdb,
                 self.relationships_vdb,
                 self.chunks_vdb,
+                self.images_vdb,
                 self.chunk_entity_relation_graph,
                 self.llm_response_cache,
                 self.doc_status,
+                self.semantic_cache_vdb,
+                self.semantic_cache_kv,
             ):
                 if storage:
                     # logger.debug(f"Initializing storage: {storage}")
@@ -1161,9 +1286,12 @@ class LightRAG(_RoleLLMMixin, _StorageMigrationMixin, _PipelineMixin):
                 ("entities_vdb", self.entities_vdb),
                 ("relationships_vdb", self.relationships_vdb),
                 ("chunks_vdb", self.chunks_vdb),
+                ("images_vdb", self.images_vdb),
                 ("chunk_entity_relation_graph", self.chunk_entity_relation_graph),
                 ("llm_response_cache", self.llm_response_cache),
                 ("doc_status", self.doc_status),
+                ("semantic_cache_vdb", self.semantic_cache_vdb),
+                ("semantic_cache_kv", self.semantic_cache_kv),
             ]
 
             # Finalize each storage individually to ensure one failure doesn't prevent others from closing
@@ -1962,6 +2090,7 @@ class LightRAG(_RoleLLMMixin, _StorageMigrationMixin, _PipelineMixin):
                 hashing_kv=self.llm_response_cache,
                 system_prompt=None,
                 chunks_vdb=self.chunks_vdb,
+                images_vdb=self.images_vdb,
             )
         elif data_param.mode == "naive":
             logger.debug(f"[aquery_data] Using naive_query for mode: {data_param.mode}")
@@ -1972,6 +2101,7 @@ class LightRAG(_RoleLLMMixin, _StorageMigrationMixin, _PipelineMixin):
                 global_config,
                 hashing_kv=self.llm_response_cache,
                 system_prompt=None,
+                images_vdb=self.images_vdb,
             )
         elif data_param.mode == "bypass":
             logger.debug("[aquery_data] Using bypass mode")
@@ -2059,6 +2189,9 @@ class LightRAG(_RoleLLMMixin, _StorageMigrationMixin, _PipelineMixin):
                     hashing_kv=self.llm_response_cache,
                     system_prompt=system_prompt,
                     chunks_vdb=self.chunks_vdb,
+                    images_vdb=self.images_vdb,
+                    semantic_cache_vdb=self.semantic_cache_vdb,
+                    semantic_cache_kv=self.semantic_cache_kv,
                 )
             elif param.mode == "naive":
                 query_result = await naive_query(
@@ -2068,6 +2201,9 @@ class LightRAG(_RoleLLMMixin, _StorageMigrationMixin, _PipelineMixin):
                     global_config,
                     hashing_kv=self.llm_response_cache,
                     system_prompt=system_prompt,
+                    images_vdb=self.images_vdb,
+                    semantic_cache_vdb=self.semantic_cache_vdb,
+                    semantic_cache_kv=self.semantic_cache_kv,
                 )
             elif param.mode == "bypass":
                 # Bypass mode: directly use LLM without knowledge retrieval
