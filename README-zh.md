@@ -118,7 +118,7 @@
 
 ### 安装LightRAG服务器
 
-LightRAG服务器旨在提供Web UI和API支持。Web UI便于文档索引、知识图谱探索和简单的RAG查询界面。LightRAG服务器还提供兼容Ollama的接口，旨在将LightRAG模拟为Ollama聊天模型。这使得AI聊天机器人（如Open WebUI）可以轻松访问LightRAG。
+LightRAG服务器旨在提供Web UI和API支持。Web UI便于文档索引、知识图谱探索和简单的RAG查询界面。LightRAG服务器提供REST API，支持文档索引和RAG查询。
 
 * 从PyPI安装
 
@@ -287,7 +287,7 @@ python examples/lightrag_openai_demo.py
 
 ## 使用LightRAG Core进行编程
 
-完整的 Core API 参考 —— 包括初始化参数、`QueryParam`、各 LLM/Embedding 接入示例（OpenAI、Ollama、Azure、Gemini、HuggingFace、LlamaIndex）、Rerank 注入、插入操作、实体/关系管理、删除与合并 —— 详见 **[docs/ProgramingWithCore.md](./docs/ProgramingWithCore.md)**（英文）。
+完整的 Core API 参考 —— 包括初始化参数、`QueryParam`、各 LLM/Embedding 接入示例（OpenAI、Azure、Gemini、HuggingFace、LlamaIndex）、Rerank 注入、插入操作、实体/关系管理、删除与合并 —— 详见 **[docs/ProgramingWithCore.md](./docs/ProgramingWithCore.md)**（英文）。
 
 > ⚠️ **如果您希望将LightRAG集成到您的项目中，建议您使用LightRAG Server提供的REST API**。LightRAG Core通常用于嵌入式应用，或供希望进行研究与评估的学者使用。
 

@@ -1,6 +1,6 @@
 # LightRAG Server and WebUI
 
-The LightRAG Server is designed to provide a Web UI and API support. The Web UI facilitates document indexing, knowledge graph exploration, and a simple RAG query interface. LightRAG Server also provides an Ollama-compatible interface, aiming to emulate LightRAG as an Ollama chat model. This allows AI chat bots, such as Open WebUI, to access LightRAG easily.
+The LightRAG Server is designed to provide a Web UI and API support. The Web UI facilitates document indexing, knowledge graph exploration, and a simple RAG query interface.
 
 ![image-20250323122538997](./LightRAG-API-Server.assets/image-20250323122538997.png)
 
@@ -83,7 +83,6 @@ LightRAG necessitates the integration of both an LLM (Large Language Model) and 
 
 LightRAG supports these LLM backends:
 
-* ollama
 * lollms
 * openai or openai compatible
 * azure_openai
@@ -93,7 +92,6 @@ LightRAG supports these LLM backends:
 LightRAG supports these embedding backends:
 
 * lollms
-* ollama
 * openai or openai compatible
 * azure_openai
 * bedrock
@@ -109,39 +107,7 @@ If you need to configure different LLMs/VLMs for entity extraction, keyword extr
 
 Here are some examples of common settings for LLM and Embedding models:
 
-* OpenAI LLM + Ollama Embedding:
-
-```
-LLM_BINDING=openai
-LLM_MODEL=gpt-4o
-LLM_BINDING_HOST=https://api.openai.com/v1
-LLM_BINDING_API_KEY=your_api_key
-
-EMBEDDING_BINDING=ollama
-EMBEDDING_BINDING_HOST=http://localhost:11434
-EMBEDDING_MODEL=bge-m3:latest
-EMBEDDING_DIM=1024
-# EMBEDDING_BINDING_API_KEY=your_api_key
-```
-
 > When targeting Google Gemini, set `LLM_BINDING=gemini`, choose a model such as `LLM_MODEL=gemini-flash-latest`, and provide your Gemini key via `LLM_BINDING_API_KEY` (or `GEMINI_API_KEY`).
-
-* Ollama LLM + Ollama Embedding:
-
-```
-LLM_BINDING=ollama
-LLM_MODEL=mistral-nemo:latest
-LLM_BINDING_HOST=http://localhost:11434
-# LLM_BINDING_API_KEY=your_api_key
-###  Ollama Server context length (Must be larger than MAX_TOTAL_TOKENS+2000)
-OLLAMA_LLM_NUM_CTX=16384
-
-EMBEDDING_BINDING=ollama
-EMBEDDING_BINDING_HOST=http://localhost:11434
-EMBEDDING_MODEL=bge-m3:latest
-EMBEDDING_DIM=1024
-# EMBEDDING_BINDING_API_KEY=your_api_key
-```
 
 > **Important Note**: The embedding model and asymmetric embedding configuration must be determined before document indexing, and the same settings must be used during the query phase. For certain storage solutions (e.g., PostgreSQL), the vector dimension must be defined upon initial table creation. When changing the embedding model, embedding dimension, `EMBEDDING_ASYMMETRIC`, query/document prefixes, or provider task behavior, clear the existing LightRAG workspace/vector data and re-index the source files.
 
@@ -150,7 +116,7 @@ EMBEDDING_DIM=1024
 LightRAG uses symmetric embeddings by default. Query/document asymmetric embeddings are enabled only when `EMBEDDING_ASYMMETRIC=true` is explicitly set.
 
 - Provider task bindings such as `jina`, `gemini`, and `voyageai` use provider parameters (`task` / `task_type` / `input_type`) and should not use query/document prefixes.
-- Prefix-based bindings such as `openai`, `azure_openai`, and `ollama` require both `EMBEDDING_QUERY_PREFIX` and `EMBEDDING_DOCUMENT_PREFIX`. Use `NO_PREFIX` for a side that should intentionally have no prefix.
+- Prefix-based bindings such as `openai` and `azure_openai` require both `EMBEDDING_QUERY_PREFIX` and `EMBEDDING_DOCUMENT_PREFIX`. Use `NO_PREFIX` for a side that should intentionally have no prefix.
 - Any valid change to asymmetric embedding settings requires clearing existing data and re-indexing files.
 
 For the full validation rules and examples, see [Asymmetric Embedding Configuration](./AsymmetricEmbedding.md).
@@ -247,7 +213,6 @@ Use this path when you want the WebUI and API running first, with no external da
 PORT=9621
 WEBUI_TITLE='My First LightRAG KB'
 WEBUI_DESCRIPTION='Simple and Fast Graph Based RAG System'
-OLLAMA_EMULATING_MODEL_TAG=latest
 
 ########################################
 ### Document processing configuration
@@ -538,55 +503,6 @@ sudo systemctl status lightrag.service
 sudo systemctl enable lightrag.service
 ```
 
-## Ollama Emulation
-
-We provide Ollama-compatible interfaces for LightRAG, aiming to emulate LightRAG as an Ollama chat model. This allows AI chat frontends supporting Ollama, such as Open WebUI, to access LightRAG easily.
-
-### Connect Open WebUI to LightRAG
-
-After starting the lightrag-server, you can add an Ollama-type connection in the Open WebUI admin panel. And then a model named `lightrag:latest` will appear in Open WebUI's model management interface. Users can then send queries to LightRAG through the chat interface. You should install LightRAG as a service for this use case.
-
-Open WebUI uses an LLM to do the session title and session keyword generation task. So the Ollama chat completion API detects and forwards OpenWebUI session-related requests directly to the underlying LLM. Screenshot from Open WebUI:
-
-![image-20250323194750379](./LightRAG-API-Server.assets/image-20250323194750379.png)
-
-### Choose Query mode in chat
-
-The default query mode is `hybrid` if you send a message (query) from the Ollama interface of LightRAG. You can select query mode by sending a message with a query prefix.
-
-A query prefix in the query string can determine which LightRAG query mode is used to generate the response for the query. The supported prefixes include:
-
-```
-/local
-/global
-/hybrid
-/naive
-/mix
-
-/bypass
-/context
-/localcontext
-/globalcontext
-/hybridcontext
-/naivecontext
-/mixcontext
-```
-
-For example, the chat message `/mix What's LightRAG?` will trigger a mix mode query for LightRAG. A chat message without a query prefix will trigger a hybrid mode query by default.
-
-`/bypass` is not a LightRAG query mode; it will tell the API Server to pass the query directly to the underlying LLM, including the chat history. So the user can use the LLM to answer questions based on the chat history. If you are using Open WebUI as a front end, you can just switch the model to a normal LLM instead of using the `/bypass` prefix.
-
-`/context` is also not a LightRAG query mode; it will tell LightRAG to return only the context information prepared for the LLM. You can check the context if it's what you want, or process the context by yourself.
-
-### Add user prompt in chat
-
-When using LightRAG for content queries, avoid combining the search process with unrelated output processing, as this significantly impacts query effectiveness. User prompt is specifically designed to address this issue — it does not participate in the RAG retrieval phase, but rather guides the LLM on how to process the retrieved results after the query is completed. We can append square brackets to the query prefix to provide the LLM with the user prompt:
-
-```
-/[Use mermaid format for diagrams] Please draw a character relationship diagram for Scrooge
-/mix[Use mermaid format for diagrams] Please draw a character relationship diagram for Scrooge
-```
-
 ## API Key and Authentication
 
 By default, the LightRAG Server can be accessed without any authentication. We can configure the server with an API Key or account credentials to secure it.
@@ -598,7 +514,7 @@ LIGHTRAG_API_KEY=your-secure-api-key-here
 WHITELIST_PATHS=/health,/api/*
 ```
 
-> Health check and Ollama emulation endpoints are excluded from API Key check by default. For security reasons, remove `/api/*` from `WHITELIST_PATHS` if the Ollama service is not required.
+> Health check endpoints are excluded from API Key check by default.
 
 The API key is passed using the request header `X-API-Key`. Below is an example of accessing the LightRAG Server via API:
 
@@ -681,7 +597,6 @@ Most of the configurations come with default settings; check out the details in 
 
 LightRAG supports binding to various LLM backends:
 
-* ollama
 * openai (including openai compatible)
 * azure_openai
 * lollms
@@ -691,7 +606,6 @@ LightRAG supports binding to various LLM backends:
 LightRAG supports binding to various Embedding backends:
 
 * lollms
-* ollama
 * openai (including openai compatible)
 * azure_openai
 * bedrock
@@ -714,13 +628,11 @@ AWS_REGION=us-west-2
 
 Asymmetric embedding is explicit opt-in. Set `EMBEDDING_ASYMMETRIC=true` only when the selected embedding backend supports either provider task parameters or task prefixes. See [Asymmetric Embedding Configuration](./AsymmetricEmbedding.md) before changing these settings, because existing data must be cleared and files re-indexed after any change.
 
-For LLM and embedding configuration examples, please refer to the `env.example` file in the project's root directory. To view the complete list of configurable options for OpenAI and Ollama-compatible LLM interfaces, use the following commands:
+For LLM and embedding configuration examples, please refer to the `env.example` file in the project's root directory. To view the complete list of configurable options for supported LLM interfaces, use the following commands:
 
 ```
 lightrag-server --llm-binding openai --help
-lightrag-server --llm-binding ollama --help
 lightrag-server --llm-binding gemini --help
-lightrag-server --embedding-binding ollama --help
 lightrag-server --embedding-binding gemini --help
 ```
 
@@ -731,9 +643,6 @@ Set the max_tokens to **prevent excessively long or endless output loop** during
 ```
 # For vLLM/SGLang doployed models, or most of OpenAI compatible API provider
 OPENAI_LLM_MAX_TOKENS=9000
-
-# For Ollama Deployed Modeles
-OLLAMA_LLM_NUM_PREDICT=9000
 
 # For OpenAI o1-mini or newer modles
 OPENAI_LLM_MAX_COMPLETION_TOKENS=9000
@@ -747,7 +656,7 @@ The server can use different models for different stages without changing client
 | --- | --- |
 | `EXTRACT` | Entity/relation extraction and merge summaries |
 | `KEYWORD` | Query keyword generation before retrieval |
-| `QUERY` | Final answers, bypass queries, and Ollama-compatible chat responses |
+| `QUERY` | Final answers and bypass queries |
 | `VLM` | Multimodal analysis for images, tables, equations, and similar sidecar items |
 
 If a role is not configured, it inherits the base `LLM_*` settings. Minimal same-provider example:
@@ -773,7 +682,7 @@ The parser can produce sidecars for drawings/images, tables, and equations. VLM 
 - The document's `process_options` contains the matching modality flag: `i` for images, `t` for tables, or `e` for equations.
 - `VLM_PROCESS_ENABLE=true` and the effective VLM binding supports image input.
 
-Current vision-capable providers are `openai`, `azure_openai`, `gemini`, `bedrock`, `ollama`, and `anthropic`; `lollms` is rejected for VLM use. Typical configuration:
+Current vision-capable providers are `openai`, `azure_openai`, `gemini`, `bedrock`, and `anthropic`; `lollms` is rejected for VLM use. Typical configuration:
 
 ```bash
 VLM_PROCESS_ENABLE=true
@@ -860,8 +769,8 @@ When switching the storage implementation in LightRAG, the LLM cache can be migr
 | `--workspace` | `""` | Default workspace for storage isolation |
 | `--api-prefix` | `""` | Reverse-proxy path prefix, also configurable with `LIGHTRAG_API_PREFIX` |
 | `--workers` | `1` | Gunicorn worker count |
-| `--llm-binding` | `ollama` | LLM binding type (`lollms`, `ollama`, `openai`, `openai-ollama`, `azure_openai`, `bedrock`, `gemini`) |
-| `--embedding-binding` | `ollama` | Embedding binding type (`lollms`, `ollama`, `openai`, `azure_openai`, `bedrock`, `jina`, `gemini`, `voyageai`) |
+| `--llm-binding` | `openai` | LLM binding type (`lollms`, `openai`, `azure_openai`, `bedrock`, `gemini`) |
+| `--embedding-binding` | `openai` | Embedding binding type (`lollms`, `openai`, `azure_openai`, `bedrock`, `jina`, `gemini`, `voyageai`) |
 | `--rerank-binding` | `null` | Rerank binding type (`null`, `cohere`, `jina`, `aliyun`) |
 
 ### Reranking Configuration
@@ -1010,11 +919,11 @@ RERANK_BINDING=null
 # RERANK_TIMEOUT=30
 
 ### Embedding Configuration (Use valid host. For local services installed with docker, you can use host.docker.internal)
-# see also env.ollama-binding-options.example for fine tuning ollama
-EMBEDDING_MODEL=bge-m3:latest
-EMBEDDING_DIM=1024
-EMBEDDING_BINDING=ollama
-EMBEDDING_BINDING_HOST=http://localhost:11434
+EMBEDDING_MODEL=text-embedding-3-large
+EMBEDDING_DIM=3072
+EMBEDDING_BINDING=openai
+EMBEDDING_BINDING_HOST=https://api.openai.com/v1
+EMBEDDING_BINDING_API_KEY=your-api-key
 # Optional asymmetric embedding for prefix-based models:
 # EMBEDDING_ASYMMETRIC=true
 # EMBEDDING_QUERY_PREFIX="search_query: "
@@ -1120,7 +1029,7 @@ Uploads and text inserts can be accepted while the processing loop is busy; the 
 
 ## API Endpoints
 
-All supported backends (`lollms`, `ollama`, `openai` / OpenAI-compatible, `azure_openai`, `bedrock`, and `gemini`) expose the same LightRAG REST API surface. When the API Server is running, visit:
+All supported backends (`lollms`, `openai` / OpenAI-compatible, `azure_openai`, `bedrock`, and `gemini`) expose the same LightRAG REST API surface. When the API Server is running, visit:
 
 - Swagger UI: http://localhost:9621/docs
 - ReDoc: http://localhost:9621/redoc

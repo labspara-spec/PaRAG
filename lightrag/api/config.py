@@ -13,11 +13,8 @@ from lightrag.llm.binding_options import (
     BedrockLLMOptions,
     GeminiEmbeddingOptions,
     GeminiLLMOptions,
-    OllamaEmbeddingOptions,
-    OllamaLLMOptions,
     OpenAILLMOptions,
 )
-from lightrag.base import OllamaServerInfos
 import sys
 
 from lightrag.constants import (
@@ -39,8 +36,6 @@ from lightrag.constants import (
     DEFAULT_SUMMARY_LANGUAGE,
     DEFAULT_EMBEDDING_FUNC_MAX_ASYNC,
     DEFAULT_EMBEDDING_BATCH_NUM,
-    DEFAULT_OLLAMA_MODEL_NAME,
-    DEFAULT_OLLAMA_MODEL_TAG,
     DEFAULT_RERANK_BINDING,
     DEFAULT_LLM_TIMEOUT,
     DEFAULT_EMBEDDING_TIMEOUT,
@@ -53,11 +48,10 @@ from lightrag.constants import (
 load_dotenv(dotenv_path=".env", override=False)
 
 
-ollama_server_infos = OllamaServerInfos()
 DEFAULT_TOKEN_SECRET = "lightrag-jwt-default-secret-key!"
 NO_PREFIX_SENTINEL = "NO_PREFIX"
 PROVIDER_ASYMMETRIC_EMBEDDING_BINDINGS = {"gemini", "jina", "voyageai"}
-PREFIX_ASYMMETRIC_EMBEDDING_BINDINGS = {"azure_openai", "ollama", "openai"}
+PREFIX_ASYMMETRIC_EMBEDDING_BINDINGS = {"azure_openai", "openai"}
 
 
 class DefaultRAGStorageConfig:
@@ -69,7 +63,6 @@ class DefaultRAGStorageConfig:
 
 def get_default_host(binding_type: str) -> str:
     default_hosts = {
-        "ollama": os.getenv("LLM_BINDING_HOST", "http://localhost:11434"),
         "lollms": os.getenv("LLM_BINDING_HOST", "http://localhost:9600"),
         "azure_openai": os.getenv("AZURE_OPENAI_ENDPOINT", "https://api.openai.com/v1"),
         "openai": os.getenv("LLM_BINDING_HOST", "https://api.openai.com/v1"),
@@ -81,8 +74,8 @@ def get_default_host(binding_type: str) -> str:
         "gemini": os.getenv("LLM_BINDING_HOST", "DEFAULT_GEMINI_ENDPOINT"),
     }
     return default_hosts.get(
-        binding_type, os.getenv("LLM_BINDING_HOST", "http://localhost:11434")
-    )  # fallback to ollama if unknown
+        binding_type, os.getenv("LLM_BINDING_HOST", "https://api.openai.com/v1")
+    )
 
 
 def resolve_asymmetric_embedding_opt_in(
@@ -351,21 +344,6 @@ def parse_args() -> argparse.Namespace:
         help="Path to SSL private key file (required if --ssl is enabled)",
     )
 
-    # Ollama model configuration
-    parser.add_argument(
-        "--simulated-model-name",
-        type=str,
-        default=get_env_value("OLLAMA_EMULATING_MODEL_NAME", DEFAULT_OLLAMA_MODEL_NAME),
-        help="Name for the simulated Ollama model (default: from env or lightrag)",
-    )
-
-    parser.add_argument(
-        "--simulated-model-tag",
-        type=str,
-        default=get_env_value("OLLAMA_EMULATING_MODEL_TAG", DEFAULT_OLLAMA_MODEL_TAG),
-        help="Tag for the simulated Ollama model (default: from env or latest)",
-    )
-
     # Namespace
     parser.add_argument(
         "--workspace",
@@ -394,25 +372,22 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--llm-binding",
         type=str,
-        default=get_binding_env_value("LLM_BINDING", "ollama"),
+        default=get_binding_env_value("LLM_BINDING", "openai"),
         choices=[
             "lollms",
-            "ollama",
             "openai",
-            "openai-ollama",
             "azure_openai",
             "bedrock",
             "gemini",
         ],
-        help="LLM binding type (default: from env or ollama)",
+        help="LLM binding type (default: from env or openai)",
     )
     parser.add_argument(
         "--embedding-binding",
         type=str,
-        default=get_binding_env_value("EMBEDDING_BINDING", "ollama"),
+        default=get_binding_env_value("EMBEDDING_BINDING", "openai"),
         choices=[
             "lollms",
-            "ollama",
             "openai",
             "azure_openai",
             "bedrock",
@@ -420,7 +395,7 @@ def parse_args() -> argparse.Namespace:
             "gemini",
             "voyageai",
         ],
-        help="Embedding binding type (default: from env or ollama)",
+        help="Embedding binding type (default: from env or openai)",
     )
     parser.add_argument(
         "--rerank-binding",
@@ -430,7 +405,7 @@ def parse_args() -> argparse.Namespace:
         help=f"Rerank binding type (default: from env or {DEFAULT_RERANK_BINDING})",
     )
 
-    # Conditionally add binding-specific options (Ollama, OpenAI, Azure OpenAI, Gemini)
+    # Conditionally add binding-specific options (OpenAI, Azure OpenAI, Gemini)
     # This registers command line arguments (e.g., --openai-llm-temperature)
     # and reads corresponding environment variables (e.g., OPENAI_LLM_TEMPERATURE)
 
@@ -446,12 +421,10 @@ def parse_args() -> argparse.Namespace:
 
     # Fall back to environment variable using same function as argparse default
     if llm_binding_value is None:
-        llm_binding_value = get_binding_env_value("LLM_BINDING", "ollama")
+        llm_binding_value = get_binding_env_value("LLM_BINDING", "openai")
 
     # Add LLM binding options based on determined value
-    if llm_binding_value == "ollama":
-        OllamaLLMOptions.add_args(parser)
-    elif llm_binding_value in ["openai", "azure_openai"]:
+    if llm_binding_value in ["openai", "azure_openai"]:
         OpenAILLMOptions.add_args(parser)
     elif llm_binding_value == "gemini":
         GeminiLLMOptions.add_args(parser)
@@ -470,12 +443,10 @@ def parse_args() -> argparse.Namespace:
 
     # Fall back to environment variable using same function as argparse default
     if embedding_binding_value is None:
-        embedding_binding_value = get_binding_env_value("EMBEDDING_BINDING", "ollama")
+        embedding_binding_value = get_binding_env_value("EMBEDDING_BINDING", "openai")
 
     # Add embedding binding options based on determined value
-    if embedding_binding_value == "ollama":
-        OllamaEmbeddingOptions.add_args(parser)
-    elif embedding_binding_value == "gemini":
+    if embedding_binding_value == "gemini":
         GeminiEmbeddingOptions.add_args(parser)
 
     args = parser.parse_args()
@@ -503,11 +474,6 @@ def parse_args() -> argparse.Namespace:
 
     # Get MAX_GRAPH_NODES from environment
     args.max_graph_nodes = get_env_value("MAX_GRAPH_NODES", 1000, int)
-
-    # Handle openai-ollama special case
-    if args.llm_binding == "openai-ollama":
-        args.llm_binding = "openai"
-        args.embedding_binding = "ollama"
 
     args.llm_binding_host = get_env_value(
         "LLM_BINDING_HOST", get_default_host(args.llm_binding)
@@ -629,7 +595,7 @@ def parse_args() -> argparse.Namespace:
                 f"VLM_PROCESS_ENABLE=true but the effective VLM binding "
                 f"'{effective_vlm_binding}' does not support image inputs. "
                 "Configure VLM_LLM_BINDING (or LLM_BINDING) to one of: "
-                "openai, azure_openai, gemini, bedrock, ollama."
+                "openai, azure_openai, gemini, bedrock."
             )
 
     # Add environment variables that were previously read directly
@@ -729,9 +695,6 @@ def parse_args() -> argparse.Namespace:
     # Asymmetric embedding behavior toggle
     args.embedding_asymmetric_configured = "EMBEDDING_ASYMMETRIC" in os.environ
     args.embedding_asymmetric = get_env_value("EMBEDDING_ASYMMETRIC", False, bool)
-
-    ollama_server_infos.LIGHTRAG_NAME = args.simulated_model_name
-    ollama_server_infos.LIGHTRAG_TAG = args.simulated_model_tag
 
     # Sanitize workspace: only alphanumeric characters and underscores are allowed
     if args.workspace:

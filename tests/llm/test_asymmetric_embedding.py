@@ -135,7 +135,7 @@ async def test_embedding_func_forwards_context_when_supported():
 def test_asymmetric_opt_in_is_off_when_toggle_is_unset_even_with_prefixes():
     assert (
         api_config.resolve_asymmetric_embedding_opt_in(
-            binding="ollama",
+            binding="openai",
             embedding_asymmetric=False,
             embedding_asymmetric_configured=False,
             query_prefix="search_query: ",
@@ -150,7 +150,7 @@ def test_asymmetric_opt_in_is_off_when_toggle_is_unset_even_with_prefixes():
 def test_asymmetric_opt_in_explicit_false_disables_even_with_prefixes():
     assert (
         api_config.resolve_asymmetric_embedding_opt_in(
-            binding="ollama",
+            binding="openai",
             embedding_asymmetric=False,
             embedding_asymmetric_configured=True,
             query_prefix="search_query: ",
@@ -196,7 +196,7 @@ def test_asymmetric_opt_in_explicit_true_ignores_provider_prefixes():
 def test_asymmetric_opt_in_explicit_true_requires_both_prefix_settings():
     with pytest.raises(ValueError, match="requires both"):
         api_config.resolve_asymmetric_embedding_opt_in(
-            binding="ollama",
+            binding="openai",
             embedding_asymmetric=True,
             embedding_asymmetric_configured=True,
             query_prefix="search_query: ",
@@ -209,7 +209,7 @@ def test_asymmetric_opt_in_explicit_true_requires_both_prefix_settings():
 def test_asymmetric_opt_in_explicit_true_accepts_no_prefix_sentinel_side():
     assert (
         api_config.resolve_asymmetric_embedding_opt_in(
-            binding="ollama",
+            binding="openai",
             embedding_asymmetric=True,
             embedding_asymmetric_configured=True,
             query_prefix="search_query: ",
@@ -224,7 +224,7 @@ def test_asymmetric_opt_in_explicit_true_accepts_no_prefix_sentinel_side():
 def test_asymmetric_opt_in_explicit_true_rejects_both_sides_no_prefix():
     with pytest.raises(ValueError, match="At least one"):
         api_config.resolve_asymmetric_embedding_opt_in(
-            binding="ollama",
+            binding="openai",
             embedding_asymmetric=True,
             embedding_asymmetric_configured=True,
             query_prefix="",

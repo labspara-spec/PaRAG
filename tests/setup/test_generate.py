@@ -703,10 +703,10 @@ source "{REPO_ROOT}/scripts/setup/setup.sh"
 REPO_ROOT="{tmp_path}"
 reset_state
 
-ENV_VALUES[EMBEDDING_BINDING]="ollama"
-ENV_VALUES[EMBEDDING_MODEL]="bge-m3:latest"
+ENV_VALUES[EMBEDDING_BINDING]="lollms"
+ENV_VALUES[EMBEDDING_MODEL]="lollms_embedding_model"
 ENV_VALUES[EMBEDDING_DIM]="1024"
-ENV_VALUES[EMBEDDING_BINDING_HOST]="http://localhost:11434"
+ENV_VALUES[EMBEDDING_BINDING_HOST]="http://localhost:9600"
 
 generate_env_file "{REPO_ROOT}/env.example" "$REPO_ROOT/.env\"
 """)
@@ -720,9 +720,9 @@ generate_env_file "{REPO_ROOT}/env.example" "$REPO_ROOT/.env\"
     active_host_lines = [
         line for line in generated_env if line.startswith("EMBEDDING_BINDING_HOST=")
     ]
-    assert active_embedding_lines == ["EMBEDDING_BINDING=ollama"]
-    assert active_model_lines == ["EMBEDDING_MODEL=bge-m3:latest"]
-    assert active_host_lines == ["EMBEDDING_BINDING_HOST=http://localhost:11434"]
+    assert active_embedding_lines == ["EMBEDDING_BINDING=lollms"]
+    assert active_model_lines == ["EMBEDDING_MODEL=lollms_embedding_model"]
+    assert active_host_lines == ["EMBEDDING_BINDING_HOST=http://localhost:9600"]
     assert "# EMBEDDING_BINDING=openai" in generated_env
 
 

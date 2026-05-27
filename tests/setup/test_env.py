@@ -101,13 +101,13 @@ def test_env_base_flow_preserves_existing_provider_bindings_on_rerun(
     env_file.write_text(
         "\n".join(
             [
-                "LLM_BINDING=ollama",
-                "LLM_MODEL=llama3.2:latest",
-                "LLM_BINDING_HOST=http://localhost:11434",
-                "EMBEDDING_BINDING=ollama",
-                "EMBEDDING_MODEL=nomic-embed-text:latest",
+                "LLM_BINDING=lollms",
+                "LLM_MODEL=mistral",
+                "LLM_BINDING_HOST=http://localhost:9600",
+                "EMBEDDING_BINDING=lollms",
+                "EMBEDDING_MODEL=nomic-embed",
                 "EMBEDDING_DIM=768",
-                "EMBEDDING_BINDING_HOST=http://localhost:11434",
+                "EMBEDDING_BINDING_HOST=http://localhost:9600",
             ]
         )
         + "\n",
@@ -139,10 +139,10 @@ finalize_base_setup() {{
 env_base_flow
 """)
     values = parse_lines(output)
-    assert values["LLM_BINDING"] == "ollama"
+    assert values["LLM_BINDING"] == "lollms"
     assert values["LLM_MODEL"] == "llama3.2:latest"
     assert values["LLM_BINDING_HOST"] == "http://localhost:11434"
-    assert values["EMBEDDING_BINDING"] == "ollama"
+    assert values["EMBEDDING_BINDING"] == "lollms"
     assert values["EMBEDDING_MODEL"] == "nomic-embed-text:latest"
     assert values["EMBEDDING_DIM"] == "768"
     assert values["EMBEDDING_BINDING_HOST"] == "http://localhost:11434"
@@ -411,7 +411,7 @@ REPO_ROOT="{tmp_path}"
 host_cuda_available() {{ return 1; }}
 prompt_choice() {{
   case "$1" in
-    "LLM provider") printf 'ollama' ;;
+    "LLM provider") printf 'lollms' ;;
     "Embedding device"|"Rerank device") printf 'cuda' ;;
     *) printf '%s' "$2" ;;
   esac
@@ -907,18 +907,18 @@ prompt_secret_until_valid_with_default() {
                 "EMBEDDING_BINDING_API_KEY=sk-test-key",
             ],
         },
-        "ollama": {
+        "lollms": {
             "prompt_choice": """
 prompt_choice() {
   case "$1" in
-    "LLM provider") printf 'ollama' ;;
-    "Embedding provider") printf 'ollama' ;;
+    "LLM provider") printf 'lollms' ;;
+    "Embedding provider") printf 'lollms' ;;
     *) printf '%s' "$2" ;;
   esac
 }
 """,
             "prompt_secret": "prompt_secret_until_valid_with_default() { printf '%s' \"$2\"; }",
-            "env_assertions": ["LLM_BINDING=ollama", "EMBEDDING_BINDING=ollama"],
+            "env_assertions": ["LLM_BINDING=lollms", "EMBEDDING_BINDING=lollms"],
         },
     }
     for case_name, case in cases.items():
@@ -1501,13 +1501,13 @@ def test_env_storage_flow_applies_selected_storage_backends(tmp_path: Path) -> N
             "LIGHTRAG_VECTOR_STORAGE=NanoVectorDBStorage",
             "LIGHTRAG_GRAPH_STORAGE=NetworkXStorage",
             "LIGHTRAG_DOC_STATUS_STORAGE=JsonDocStatusStorage",
-            "LLM_BINDING=ollama",
-            "LLM_MODEL=llama3.2:latest",
-            "LLM_BINDING_HOST=http://localhost:11434",
-            "EMBEDDING_BINDING=ollama",
-            "EMBEDDING_MODEL=nomic-embed-text:latest",
+            "LLM_BINDING=lollms",
+            "LLM_MODEL=mistral",
+            "LLM_BINDING_HOST=http://localhost:9600",
+            "EMBEDDING_BINDING=lollms",
+            "EMBEDDING_MODEL=nomic-embed",
             "EMBEDDING_DIM=768",
-            "EMBEDDING_BINDING_HOST=http://localhost:11434",
+            "EMBEDDING_BINDING_HOST=http://localhost:9600",
         ],
     )
     values = run_bash_lines(f"""
@@ -1538,8 +1538,8 @@ env_storage_flow
     assert values["LIGHTRAG_VECTOR_STORAGE"] == "MilvusVectorDBStorage"
     assert values["LIGHTRAG_GRAPH_STORAGE"] == "Neo4JStorage"
     assert values["LIGHTRAG_DOC_STATUS_STORAGE"] == "RedisDocStatusStorage"
-    assert values["LLM_BINDING"] == "ollama"
-    assert values["EMBEDDING_BINDING"] == "ollama"
+    assert values["LLM_BINDING"] == "lollms"
+    assert values["EMBEDDING_BINDING"] == "lollms"
 
 
 def test_env_storage_flow_reuses_saved_storage_docker_default(tmp_path: Path) -> None:
@@ -1581,7 +1581,7 @@ def test_env_storage_flow_writes_storage_docker_marker_for_selected_service(
 ) -> None:
     """Choosing a bundled storage service should persist its deployment marker in `.env`."""
     write_text_lines(
-        tmp_path / ".env", ["LLM_BINDING=ollama", "EMBEDDING_BINDING=ollama"]
+        tmp_path / ".env", ["LLM_BINDING=lollms", "EMBEDDING_BINDING=lollms"]
     )
     write_text_lines(
         tmp_path / "env.example",
@@ -1637,7 +1637,7 @@ def test_env_storage_flow_writes_opensearch_docker_marker_for_selected_service(
 ) -> None:
     """Choosing bundled OpenSearch should persist its deployment marker in `.env`."""
     write_text_lines(
-        tmp_path / ".env", ["LLM_BINDING=ollama", "EMBEDDING_BINDING=ollama"]
+        tmp_path / ".env", ["LLM_BINDING=lollms", "EMBEDDING_BINDING=lollms"]
     )
     write_text_lines(
         tmp_path / "env.example",
@@ -1803,8 +1803,8 @@ def test_env_storage_flow_generates_env_and_compose_files(tmp_path: Path) -> Non
     env_file.write_text(
         "\n".join(
             [
-                "LLM_BINDING=ollama",
-                "EMBEDDING_BINDING=ollama",
+                "LLM_BINDING=lollms",
+                "EMBEDDING_BINDING=lollms",
                 "AUTH_ACCOUNTS=admin:secret",
                 "TOKEN_SECRET=jwt-secret",
                 "WHITELIST_PATHS=/health",
@@ -1853,7 +1853,7 @@ env_storage_flow
     )
     assert "LIGHTRAG_KV_STORAGE=PGKVStorage" in generated_env
     assert "LIGHTRAG_GRAPH_STORAGE=Neo4JStorage" in generated_env
-    assert "LLM_BINDING=ollama" in generated_env
+    assert "LLM_BINDING=lollms" in generated_env
     assert "services:" in generated_compose
     assert "  lightrag:" in generated_compose
     assert "env_file:" not in generated_compose
@@ -1867,8 +1867,8 @@ def test_env_storage_flow_uses_host_defaults_for_empty_postgres_docker_credentia
     env_file.write_text(
         "\n".join(
             [
-                "LLM_BINDING=ollama",
-                "EMBEDDING_BINDING=ollama",
+                "LLM_BINDING=lollms",
+                "EMBEDDING_BINDING=lollms",
                 "AUTH_ACCOUNTS=admin:secret",
                 "TOKEN_SECRET=jwt-secret",
                 "WHITELIST_PATHS=/health",

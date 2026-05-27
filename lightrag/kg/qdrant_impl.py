@@ -611,7 +611,22 @@ class QdrantVectorDBStorage(BaseVectorStorage):
                     model_suffix=self.model_suffix,
                 )
 
-                # Removed duplicate max batch size initialization
+                # Add payload index hints for new metadata fields (filter performance).
+                # create_payload_index is a no-op when the index already exists.
+                for _field, _schema in [
+                    ("file_type", models.KeywordIndexParams(type=models.KeywordIndexType.KEYWORD)),
+                    ("visibility", models.KeywordIndexParams(type=models.KeywordIndexType.KEYWORD)),
+                    ("owner", models.KeywordIndexParams(type=models.KeywordIndexType.KEYWORD)),
+                    ("page_number", models.IntegerIndexParams(type=models.IntegerIndexType.INTEGER, lookup=True, range=True)),
+                ]:
+                    try:
+                        self._client.create_payload_index(
+                            collection_name=self.final_namespace,
+                            field_name=_field,
+                            field_schema=_schema,
+                        )
+                    except Exception:
+                        pass
 
                 self._initialized = True
                 logger.info(

@@ -23,7 +23,9 @@ are preserved so the extracted entities can still ground against them.
 
 from __future__ import annotations
 
+import os
 import re
+from pathlib import Path
 from typing import Any
 
 
@@ -249,8 +251,93 @@ def strip_internal_multimodal_markup_for_extraction(
     return cleaned
 
 
+def normalize_chunk_section_meta(
+    dp: dict[str, Any],
+    *,
+    file_path: str = "",
+    file_size_bytes: int | None = None,
+    ingested_at: str = "",
+    processed_at: str = "",
+) -> dict[str, Any]:
+    """Inject and normalize section/file/timing metadata onto a chunk dict.
+
+    Derives ``file_name`` and ``file_type`` from *file_path* when not already
+    set.  Ensures ``section_path`` is consistent with the ``heading`` dict.
+    Fills ``chunk_char_count`` from content length.  All new fields are only
+    written when they carry a non-None/non-empty value so existing callers that
+    don't use these fields see no noise.
+
+    Returns the mutated *dp* (in-place for efficiency).
+    """
+    content = dp.get("content", "")
+
+    # File identity
+    fp = file_path or dp.get("file_path", "")
+    if fp and not dp.get("file_name"):
+        dp["file_name"] = Path(fp).name
+    if fp and not dp.get("file_type"):
+        ext = Path(fp).suffix.lstrip(".").lower()
+        if ext:
+            dp["file_type"] = ext
+    if file_size_bytes is not None and dp.get("file_size_bytes") is None:
+        dp["file_size_bytes"] = file_size_bytes
+
+    # Timestamps
+    if ingested_at and not dp.get("ingested_at"):
+        dp["ingested_at"] = ingested_at
+    if processed_at and not dp.get("processed_at"):
+        dp["processed_at"] = processed_at
+
+    # Character count
+    dp["chunk_char_count"] = len(content)
+
+    # section_path: derive from heading dict when not already set
+    if not dp.get("section_path"):
+        heading = dp.get("heading")
+        if isinstance(heading, dict):
+            parents = heading.get("parent_headings") or []
+            current = heading.get("heading") or ""
+            path: list[str] = [p for p in parents if p] + ([current] if current else [])
+            if path:
+                dp["section_path"] = path
+
+    return dp
+
+
+# Permission fields copied from document-level metadata onto each chunk.
+CHUNK_PERMISSION_FIELDS = frozenset(
+    {
+        "visibility",
+        "owner",
+        "allowed_users",
+        "allowed_roles",
+        "chunk_allowed_users",
+        "chunk_allowed_roles",
+    }
+)
+
+# All new metadata fields introduced by this feature (used by VDB backends
+# to expand their meta_fields sets without hard-coding the names).
+CHUNK_EXTENDED_META_FIELDS = frozenset(
+    {
+        "page_number",
+        "section_path",
+        "file_name",
+        "file_type",
+        "file_size_bytes",
+        "ingested_at",
+        "processed_at",
+        "chunk_char_count",
+    }
+    | CHUNK_PERMISSION_FIELDS
+)
+
+
 __all__ = [
+    "CHUNK_EXTENDED_META_FIELDS",
+    "CHUNK_PERMISSION_FIELDS",
     "normalize_chunk_heading",
+    "normalize_chunk_section_meta",
     "normalize_chunk_sidecar",
     "strip_internal_multimodal_markup_for_extraction",
 ]

@@ -98,7 +98,6 @@ from lightrag.base import (
     StorageNameSpace,
     StoragesStatus,
     DeletionResult,
-    OllamaServerInfos,
     QueryResult,
 )
 from lightrag.namespace import NameSpace
@@ -132,6 +131,7 @@ from lightrag.utils import (
 from lightrag.types import KnowledgeGraph
 from dotenv import load_dotenv
 from lightrag.pipeline import _PipelineMixin
+from lightrag.chunk_schema import CHUNK_EXTENDED_META_FIELDS
 from lightrag.kg.factory import get_storage_class
 from lightrag.addon_params import (
     ObservableAddonParams,
@@ -451,7 +451,7 @@ class LightRAG(_RoleLLMMixin, _StorageMigrationMixin, _PipelineMixin):
     )
     """When True, entity extraction uses JSON structured output instead of delimiter-based text.
     JSON mode is slower but significantly improves extraction quality and compatibility with smaller models.
-    Providers with native structured output support (OpenAI, Ollama, Gemini) will use their
+    Providers with native structured output support (OpenAI, Gemini) will use their
     native capabilities. Other providers rely on JSON-formatted prompts with json_repair parsing.
     Default: False. Set ENTITY_EXTRACTION_USE_JSON=true in .env to enable."""
 
@@ -617,12 +617,16 @@ class LightRAG(_RoleLLMMixin, _StorageMigrationMixin, _PipelineMixin):
     auto_manage_storages_states: bool = field(default=False)
     """If True, lightrag will automatically calls initialize_storages and finalize_storages at the appropriate times."""
 
+    enable_access_control: bool = field(
+        default_factory=lambda: os.getenv("ENABLE_ACCESS_CONTROL", "false").lower() == "true"
+    )
+    """Enable chunk-level access control.  When True, insert() accepts visibility/
+    allowed_users/allowed_roles/owner params, and query() respects QueryParam.current_user
+    / current_roles to filter results.  Off by default — existing deployments unaffected."""
+
     cosine_better_than_threshold: float = field(
         default=float(os.getenv("COSINE_THRESHOLD", 0.2))
     )
-
-    ollama_server_infos: Optional[OllamaServerInfos] = field(default=None)
-    """Configuration for Ollama server information."""
 
     _storages_status: StoragesStatus = field(default=StoragesStatus.NOT_CREATED)
 
@@ -885,10 +889,6 @@ class LightRAG(_RoleLLMMixin, _StorageMigrationMixin, _PipelineMixin):
             else:
                 self.tokenizer = TiktokenTokenizer()
 
-        # Initialize ollama_server_infos if not provided
-        if self.ollama_server_infos is None:
-            self.ollama_server_infos = OllamaServerInfos()
-
         # Validate config
         if self.force_llm_summary_on_merge < 3:
             logger.warning(
@@ -1030,7 +1030,7 @@ class LightRAG(_RoleLLMMixin, _StorageMigrationMixin, _PipelineMixin):
             namespace=NameSpace.VECTOR_STORE_CHUNKS,
             workspace=self.workspace,
             embedding_func=self.embedding_func,
-            meta_fields={"full_doc_id", "content", "file_path"},
+            meta_fields={"full_doc_id", "content", "file_path"} | CHUNK_EXTENDED_META_FIELDS,
         )
 
         # Initialize document status storage
@@ -1235,6 +1235,10 @@ class LightRAG(_RoleLLMMixin, _StorageMigrationMixin, _PipelineMixin):
         ids: str | list[str] | None = None,
         file_paths: str | list[str] | None = None,
         track_id: str | None = None,
+        visibility: str | None = None,
+        allowed_users: list[str] | None = None,
+        allowed_roles: list[str] | None = None,
+        owner: str | None = None,
     ) -> str:
         """Sync Insert documents with checkpoint support
 
@@ -1247,6 +1251,11 @@ class LightRAG(_RoleLLMMixin, _StorageMigrationMixin, _PipelineMixin):
             ids: single string of the document ID or list of unique document IDs, if not provided, MD5 hash IDs will be generated
             file_paths: single string of the file path or list of file paths, used for citation
             track_id: tracking ID for monitoring processing status, if not provided, will be generated
+            visibility: access control label ("public"/"internal"/"restricted"/"confidential").
+                        Only enforced when ENABLE_ACCESS_CONTROL=true.
+            allowed_users: list of user IDs allowed to read this document's chunks.
+            allowed_roles: list of role names allowed to read this document's chunks.
+            owner: user ID of the document owner (always has access).
 
         Returns:
             str: tracking ID for monitoring processing status
@@ -1260,6 +1269,10 @@ class LightRAG(_RoleLLMMixin, _StorageMigrationMixin, _PipelineMixin):
                 ids,
                 file_paths,
                 track_id,
+                visibility=visibility,
+                allowed_users=allowed_users,
+                allowed_roles=allowed_roles,
+                owner=owner,
             )
         )
 
@@ -1271,6 +1284,10 @@ class LightRAG(_RoleLLMMixin, _StorageMigrationMixin, _PipelineMixin):
         ids: str | list[str] | None = None,
         file_paths: str | list[str] | None = None,
         track_id: str | None = None,
+        visibility: str | None = None,
+        allowed_users: list[str] | None = None,
+        allowed_roles: list[str] | None = None,
+        owner: str | None = None,
     ) -> str:
         """Async Insert documents with checkpoint support
 
@@ -1303,12 +1320,24 @@ class LightRAG(_RoleLLMMixin, _StorageMigrationMixin, _PipelineMixin):
             split_by_character=split_by_character,
             split_by_character_only=split_by_character_only,
         )
+        # Build permissions dict only when at least one field is set.
+        _perms: dict | None = None
+        _perm_candidate = {
+            "visibility": visibility,
+            "owner": owner,
+            "allowed_users": allowed_users,
+            "allowed_roles": allowed_roles,
+        }
+        if any(v is not None for v in _perm_candidate.values()):
+            _perms = _perm_candidate
+
         await self.apipeline_enqueue_documents(
             input,
             ids,
             file_paths,
             track_id,
             chunk_options=chunk_opts,
+            permissions=_perms,
         )
         await self.apipeline_process_enqueue_documents()
 

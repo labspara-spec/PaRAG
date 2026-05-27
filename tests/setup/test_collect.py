@@ -490,17 +490,6 @@ fi
     ),
     [
         (
-            "collect_llm_config",
-            "LLM",
-            "ollama",
-            "",
-            "ollama",
-            "mistral-nemo:latest",
-            "http://localhost:11434",
-            "",
-            "",
-        ),
-        (
             "collect_embedding_config",
             "EMBEDDING",
             "jina",
@@ -565,7 +554,6 @@ confirm_default_yes() { return 1; }
         ),
     ],
     ids=[
-        "llm-provider-defaults",
         "embedding-provider-defaults",
         "llm-gemini-sentinel-default",
         "llm-bedrock-sentinel-default",
@@ -697,25 +685,6 @@ printf 'API_KEY=%s\\n' "${{ENV_VALUES[{binding_prefix}_BINDING_API_KEY]:-}}\"
     ),
     [
         (
-            "collect_llm_config",
-            "LLM",
-            [
-                "LLM_BINDING=openai-ollama",
-                "LLM_MODEL=llama3.1:8b",
-                "LLM_BINDING_HOST=http://localhost:11434/v1",
-                "LLM_BINDING_API_KEY=sk-local-test-key",
-            ],
-            """
-prompt_with_default() { printf '%s' "$2"; }
-prompt_secret_until_valid_with_default() { printf '%s' "$2"; }
-""",
-            "openai-ollama",
-            "llama3.1:8b",
-            "http://localhost:11434/v1",
-            "",
-            "sk-local-test-key",
-        ),
-        (
             "collect_embedding_config",
             "EMBEDDING",
             [
@@ -732,7 +701,7 @@ prompt_secret_until_valid_with_default() { printf '%s' "$2"; }
             "",
         ),
     ],
-    ids=["llm-rerun-preserves-openai-ollama", "embedding-rerun-preserves-lollms"],
+    ids=["embedding-rerun-preserves-lollms"],
 )
 def test_collect_provider_config_preserves_supported_binding_on_rerun(
     tmp_path: Path,
@@ -771,47 +740,6 @@ printf 'API_KEY=%s\\n' "${{ENV_VALUES[{binding_prefix}_BINDING_API_KEY]:-}}\"
     assert values["HOST"] == expected_host
     assert values["DIM"] == expected_dim
     assert values["API_KEY"] == expected_api_key
-
-
-def test_collect_embedding_config_forces_ollama_for_openai_ollama_llm(
-    tmp_path: Path,
-) -> None:
-    """`openai-ollama` should not preserve a conflicting embedding provider."""
-    write_text_lines(
-        tmp_path / ".env",
-        [
-            "LLM_BINDING=openai-ollama",
-            "EMBEDDING_BINDING=openai",
-            "EMBEDDING_MODEL=text-embedding-3-large",
-            "EMBEDDING_DIM=3072",
-            "EMBEDDING_BINDING_HOST=https://api.openai.com/v1",
-            "EMBEDDING_BINDING_API_KEY=local-key",
-        ],
-    )
-    output = run_bash(f"""
-set -euo pipefail
-source "{REPO_ROOT}/scripts/setup/setup.sh"
-REPO_ROOT="{tmp_path}"
-reset_state
-load_existing_env_if_present
-
-prompt_with_default() {{ printf '%s' "$2"; }}
-prompt_secret_until_valid_with_default() {{ printf '%s' "$2"; }}
-
-collect_embedding_config
-
-printf 'EMBEDDING_BINDING=%s\\n' "${{ENV_VALUES[EMBEDDING_BINDING]}}"
-printf 'EMBEDDING_MODEL=%s\\n' "${{ENV_VALUES[EMBEDDING_MODEL]}}"
-printf 'EMBEDDING_DIM=%s\\n' "${{ENV_VALUES[EMBEDDING_DIM]}}"
-printf 'EMBEDDING_BINDING_HOST=%s\\n' "${{ENV_VALUES[EMBEDDING_BINDING_HOST]}}"
-printf 'EMBEDDING_BINDING_API_KEY_SET=%s\\n' "${{ENV_VALUES[EMBEDDING_BINDING_API_KEY]+set}}\"
-""")
-    values = parse_lines(output)
-    assert values["EMBEDDING_BINDING"] == "ollama"
-    assert values["EMBEDDING_MODEL"] == "bge-m3:latest"
-    assert values["EMBEDDING_DIM"] == "1024"
-    assert values["EMBEDDING_BINDING_HOST"] == "http://localhost:11434"
-    assert values["EMBEDDING_BINDING_API_KEY_SET"] == ""
 
 
 def test_collect_llm_config_allows_bedrock_ambient_credential_chain() -> None:

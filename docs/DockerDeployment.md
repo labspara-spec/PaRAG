@@ -39,13 +39,13 @@ LightRAG can be configured using environment variables in the `.env` file:
 
 **LLM Configuration**
 
-- `LLM_BINDING`: LLM backend to use (lollms/ollama/openai)
+- `LLM_BINDING`: LLM backend to use (lollms/openai/azure_openai/bedrock/gemini)
 - `LLM_BINDING_HOST`: LLM server host URL
 - `LLM_MODEL`: Model name to use
 
 **Embedding Configuration**
 
-- `EMBEDDING_BINDING`: Embedding backend (lollms/ollama/openai)
+- `EMBEDDING_BINDING`: Embedding backend (lollms/openai/azure_openai/bedrock/gemini)
 - `EMBEDDING_BINDING_HOST`: Embedding server host URL
 - `EMBEDDING_MODEL`: Embedding model name
 - `EMBEDDING_ASYMMETRIC`: Explicitly enable query/document asymmetric embeddings

@@ -175,6 +175,7 @@ class IRBlock:
     tables: list[IRTable] = field(default_factory=list)
     drawings: list[IRDrawing] = field(default_factory=list)
     equations: list[IREquation] = field(default_factory=list)
+    page_number: int | None = None
 
 
 @dataclass

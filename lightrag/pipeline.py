@@ -129,6 +129,7 @@ _CHUNKING_METHOD_LABELS: dict[str, str] = {
     "R": "recursive_character",
     "V": "semantic_vector",
     "P": "paragraph_semantic",
+    "S": "section_aware",
 }
 
 
@@ -217,6 +218,7 @@ class _PipelineMixin:
         process_options: str | list[str] | None = None,
         chunk_options: dict | list[dict] | None = None,
         from_scan: bool = False,
+        permissions: dict[str, Any] | None = None,
     ) -> str:
         """
         Pipeline for Processing Documents
@@ -527,9 +529,12 @@ class _PipelineMixin:
                 content_data["process_options"] = options_str
             # Always snapshot chunk_options at enqueue time — independent
             # of whether process_options selected a specific strategy —
-            # so the per-doc parameters are frozen even when ``F``
+            # so the per-doc parameters are frozen even when ``S``
             # (default) is used.
             content_data["chunk_options"] = _chunk_options_at(index)
+            # Propagate document-level permission metadata when supplied.
+            if permissions and isinstance(permissions, dict):
+                content_data["permissions"] = permissions
             contents[doc_id] = content_data
 
         if is_lightrag_format:
@@ -647,8 +652,18 @@ class _PipelineMixin:
             source_file_name = content_data.get("source_file_name")
             if source_file_name:
                 metadata["source_file_name"] = source_file_name
-            if metadata:
-                base["metadata"] = metadata
+            # Store file size so chunks can later carry file_size_bytes.
+            # content_length is the stripped body length (good proxy for text
+            # sources; upload handlers may override via content_data["file_size_bytes"]).
+            fsize = content_data.get("file_size_bytes")
+            if fsize is None:
+                fsize = base.get("content_length")
+            metadata["file_size_bytes"] = fsize
+            # Propagate document-level permission metadata when present.
+            permissions = content_data.get("permissions")
+            if permissions and isinstance(permissions, dict):
+                metadata["permissions"] = permissions
+            base["metadata"] = metadata
             return base
 
         new_docs: dict[str, Any] = {
@@ -1882,6 +1897,7 @@ class _PipelineMixin:
                         chunking_by_fixed_token,
                         chunking_by_paragraph_semantic,
                         chunking_by_recursive_character,
+                        chunking_by_section_aware,
                         chunking_by_semantic_vector,
                     )
 
@@ -1949,6 +1965,26 @@ class _PipelineMixin:
                             v_chunk_size,
                             embedding_func=self.embedding_func,
                             **v_opts,
+                        )
+                    elif strategy == "S":
+                        s_opts = dict(chunk_opts.get("section_aware") or {})
+                        s_chunk_size = int(
+                            s_opts.pop("chunk_token_size", resolved_chunk_size)
+                        )
+                        # Derive doc_type from file_path extension for section detection
+                        _s_doc_type = (
+                            file_path.rsplit(".", 1)[-1].lower()
+                            if "." in file_path
+                            else ""
+                        )
+                        chunk_opts_str = _format_chunking_params(s_chunk_size, s_opts)
+                        logger.info(f"Chunking S: {chunk_opts_str}, doc_id: {doc_id}")
+                        chunking_result = chunking_by_section_aware(
+                            self.tokenizer,
+                            content,
+                            s_chunk_size,
+                            doc_type=_s_doc_type,
+                            **s_opts,
                         )
                     else:  # "F"
                         f_opts = chunk_opts.get("fixed_token") or {}
@@ -2097,8 +2133,16 @@ class _PipelineMixin:
                             f"{original_chunk_count} -> {len(chunking_result)}"
                         )
 
+                _ingested_at = getattr(status_doc, "created_at", "") or ""
+                _file_size = (status_doc.metadata or {}).get("file_size_bytes")
+                _permissions = (status_doc.metadata or {}).get("permissions") or {}
                 chunks = build_chunks_dict_from_chunking_result(
-                    chunking_result, doc_id=doc_id, file_path=file_path
+                    chunking_result,
+                    doc_id=doc_id,
+                    file_path=file_path,
+                    file_size_bytes=_file_size,
+                    ingested_at=_ingested_at,
+                    permissions=_permissions,
                 )
 
                 if not chunks:

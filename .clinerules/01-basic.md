@@ -76,7 +76,7 @@ for key, value in matching_items:
 
 ### 1. Dependency Injection
 **Pattern**: Pass configuration through object constructors, not direct imports
-**Example**: OllamaAPI receives configuration through LightRAG object
+**Example**: Route handlers receive configuration through LightRAG object
 **Benefit**: Better testability and modularity
 
 ### 2. Memory Bank Documentation
@@ -168,7 +168,7 @@ for key, value in matching_items:
 ### 3. API Architecture
 - **Framework**: FastAPI with Gunicorn for production
 - **Authentication**: JWT-based with role support
-- **Compatibility**: Ollama-compatible endpoints for easy integration
+- **Endpoints**: REST API for document management, querying, and graph access
 
 ### 4. Frontend
 - **Framework**: React with TypeScript

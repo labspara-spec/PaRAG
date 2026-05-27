@@ -345,7 +345,7 @@ async def initialize_rag():
 
 > **Important Note on Embedding Function Wrapping:**
 >
-> `EmbeddingFunc` cannot be nested. Functions decorated with `@wrap_embedding_func_with_attrs` (such as `openai_embed`, `ollama_embed`, etc.) cannot be wrapped again using `EmbeddingFunc()`. This is why we call `xxx_embed.func` (the underlying unwrapped function) instead of `xxx_embed` directly when creating custom embedding functions.
+> `EmbeddingFunc` cannot be nested. Functions decorated with `@wrap_embedding_func_with_attrs` (such as `openai_embed`, etc.) cannot be wrapped again using `EmbeddingFunc()`. This is why we call `xxx_embed.func` (the underlying unwrapped function) instead of `xxx_embed` directly when creating custom embedding functions.
 
 #### Using Hugging Face Models
 
@@ -377,62 +377,6 @@ rag = LightRAG(
     ),
 )
 ```
-
-#### Using Ollama Models
-
-Pull the model you plan to use and an embedding model, for example `nomic-embed-text`:
-
-```python
-import numpy as np
-from lightrag.utils import wrap_embedding_func_with_attrs
-from lightrag.llm.ollama import ollama_model_complete, ollama_embed
-
-@wrap_embedding_func_with_attrs(embedding_dim=768, max_token_size=8192, model_name="nomic-embed-text")
-async def embedding_func(texts: list[str]) -> np.ndarray:
-    return await ollama_embed.func(texts, embed_model="nomic-embed-text")
-
-# Initialize LightRAG with Ollama model
-rag = LightRAG(
-    working_dir=WORKING_DIR,
-    llm_model_func=ollama_model_complete,
-    llm_model_name='your_model_name',
-    embedding_func=embedding_func,
-)
-```
-
-#### Increasing context size
-
-LightRAG requires at least 32k context tokens. Ollama defaults to 8k. Two approaches:
-
-*Approach 1: Edit Modelfile*
-
-```bash
-ollama pull qwen2
-ollama show --modelfile qwen2 > Modelfile
-# Add this line to Modelfile:
-# PARAMETER num_ctx 32768
-ollama create -f Modelfile qwen2m
-```
-
-*Approach 2: Set `num_ctx` via `llm_model_kwargs`*
-
-```python
-rag = LightRAG(
-    working_dir=WORKING_DIR,
-    llm_model_func=ollama_model_complete,
-    llm_model_name='your_model_name',
-    llm_model_kwargs={"options": {"num_ctx": 32768}},
-    embedding_func=embedding_func,
-)
-```
-
-> **Important Note on Embedding Function Wrapping:**
->
-> `EmbeddingFunc` cannot be nested. Use `xxx_embed.func` to access the underlying unwrapped function.
-
-**Low RAM GPUs**
-
-For low-RAM GPUs (e.g. 6GB), select a small model and tune the context window. For example, `gemma2:2b` with `num_ctx=26000` can find ~197 entities and 19 relations on `book.txt`.
 
 #### LlamaIndex
 

@@ -180,6 +180,7 @@ class MinerUIRBuilder:
         # deeper heading is folded into this block as a body line (aligning
         # with the native docx parser's behaviour for back-to-back headings).
         cb_has_body = False
+        cb_page_number: int | None = None
 
         def _record_position(item: dict) -> None:
             """Route an item's positional info into the right channel.
@@ -189,18 +190,27 @@ class MinerUIRBuilder:
             Otherwise, ``page_idx`` (if any) is added to ``cb_page_set``
             and emitted as a single anchor-only summary entry at flush.
             """
+            nonlocal cb_page_number
             bbox_pos = _extract_bbox_position(item)
             if bbox_pos is not None:
                 cb_bbox_positions.append(bbox_pos)
-                return
-            page = _extract_page_anchor(item)
-            if page is not None:
-                cb_page_set.add(page)
+            else:
+                page = _extract_page_anchor(item)
+                if page is not None:
+                    cb_page_set.add(page)
+            # Track minimum 1-based page number for this block.
+            page_raw = item.get("page_idx")
+            if page_raw is None:
+                page_raw = item.get("page")
+            if isinstance(page_raw, int) and not isinstance(page_raw, bool):
+                pn = page_raw + 1 if page_raw >= 0 else page_raw
+                if cb_page_number is None or pn < cb_page_number:
+                    cb_page_number = pn
 
         def _flush_block() -> None:
             """Emit the in-flight block if it carries any content."""
             nonlocal cb_lines, cb_tables, cb_drawings, cb_equations
-            nonlocal cb_page_set, cb_bbox_positions, cb_has_body
+            nonlocal cb_page_set, cb_bbox_positions, cb_has_body, cb_page_number
             has_payload = bool(cb_lines or cb_tables or cb_drawings or cb_equations)
             if not has_payload:
                 return
@@ -226,6 +236,7 @@ class MinerUIRBuilder:
                     tables=list(cb_tables),
                     drawings=list(cb_drawings),
                     equations=list(cb_equations),
+                    page_number=cb_page_number,
                 )
             )
             cb_lines = []
@@ -235,6 +246,7 @@ class MinerUIRBuilder:
             cb_page_set = set()
             cb_bbox_positions = []
             cb_has_body = False
+            cb_page_number = None
 
         def _open_block(heading: str, level: int, parents: list[str]) -> None:
             nonlocal cb_heading, cb_level, cb_parents

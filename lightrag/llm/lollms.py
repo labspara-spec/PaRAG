@@ -65,7 +65,7 @@ async def lollms_model_if_cache(
         raise NotImplementedError(
             "lollms binding does not support image_inputs; configure a "
             "vision-capable VLM provider (openai/azure_openai/gemini/bedrock/"
-            "ollama/anthropic) for VLM_LLM_BINDING."
+            "anthropic) for VLM_LLM_BINDING."
         )
 
     if enable_cot:

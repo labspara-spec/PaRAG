@@ -224,7 +224,7 @@ Once installed and configured, Langfuse automatically traces all OpenAI LLM call
 - **Evaluation**: Compare model outputs
 - **Monitoring**: Real-time alerting
 
-> **Note**: LightRAG currently only integrates OpenAI-compatible API calls with Langfuse. APIs such as Ollama, Azure, and AWS Bedrock are not yet supported for Langfuse observability.
+> **Note**: LightRAG currently only integrates OpenAI-compatible API calls with Langfuse. APIs such as Azure and AWS Bedrock are not yet supported for Langfuse observability.
 
 ---
 

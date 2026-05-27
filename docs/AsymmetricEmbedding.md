@@ -36,7 +36,7 @@ LightRAG distinguishes two asymmetric embedding styles:
 | Style | Bindings | How asymmetric behavior is applied |
 | --- | --- | --- |
 | Provider task parameters | `jina`, `gemini`, `voyageai` | LightRAG passes query/document context to the provider-specific `task`, `task_type`, or `input_type` parameter. |
-| Text task prefixes | `openai`, `azure_openai`, `ollama` | LightRAG prepends configured text prefixes before calling the embedding API. Use this only when the model card explicitly requires separate query/document prefixes. |
+| Text task prefixes | `openai`, `azure_openai` | LightRAG prepends configured text prefixes before calling the embedding API. Use this only when the model card explicitly requires separate query/document prefixes. |
 
 Other server embedding bindings do not currently support
 `EMBEDDING_ASYMMETRIC=true`.
@@ -120,7 +120,7 @@ for these bindings, LightRAG logs a warning and ignores the prefixes.
 Use this mode for embedding models that expect task instructions in the input
 text, such as models whose card documents prefixes like `search_query:`,
 `search_document:`, `query:`, or `passage:`. Do not enable this mode just
-because the model is served through `openai`, `azure_openai`, or `ollama`.
+because the model is served through `openai` or `azure_openai`.
 
 Both prefix variables must be explicitly configured:
 
@@ -170,7 +170,7 @@ missing configuration.
 | `EMBEDDING_ASYMMETRIC=false` | Symmetric mode; prefixes ignored with a warning. |
 | Instruction-free model such as `BAAI/bge-m3`, `text-embedding-3-small`, `mistral-embed`, base GTE, or Jina v2 | Keep symmetric mode; do not configure prefixes or provider tasks unless the model card says to. |
 | `EMBEDDING_ASYMMETRIC=true` with `jina`/`gemini`/`voyageai` | Provider task mode; prefixes ignored with a warning. |
-| `EMBEDDING_ASYMMETRIC=true` with `openai`/`azure_openai`/`ollama` and both prefix variables configured | Prefix mode. |
+| `EMBEDDING_ASYMMETRIC=true` with `openai`/`azure_openai` and both prefix variables configured | Prefix mode. |
 | Prefix mode with a missing prefix variable | Startup error; use a real prefix or `NO_PREFIX`. |
 | Prefix mode with both sides `NO_PREFIX` | Startup error; no asymmetric behavior would occur. |
 | Prefix variable set to an empty value | Startup error; use `NO_PREFIX`. |

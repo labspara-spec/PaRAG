@@ -24,7 +24,7 @@ LightRAG uses dynamic package installation (`pipmaster`) for optional features b
 LightRAG dynamically installs packages for:
 
 - **Storage Backends**: `redis`, `neo4j`, `pymilvus`, `pymongo`, `asyncpg`, `qdrant-client`
-- **LLM Providers**: `openai`, `anthropic`, `ollama`, `zhipuai`, `aioboto3`, `voyageai`, `llama-index`, `lmdeploy`, `transformers`, `torch`
+- **LLM Providers**: `openai`, `anthropic`, `zhipuai`, `aioboto3`, `voyageai`, `llama-index`, `lmdeploy`, `transformers`, `torch`
 - **Tiktoken Models**: BPE encoding models downloaded from OpenAI CDN
 
 **Note**: Document processing dependencies (`pypdf`, `python-docx`, `python-pptx`, `openpyxl`) are now pre-installed with the `api` extras group and no longer require dynamic installation.
@@ -78,7 +78,7 @@ LightRAG provides flexible dependency groups for different use cases:
 | ----- | ----------- | -------- |
 | `api` | API server + document processing | FastAPI server with PDF, DOCX, PPTX, XLSX support |
 | `offline-storage` | Storage backends | Redis, Neo4j, MongoDB, PostgreSQL, etc. |
-| `offline-llm` | LLM providers | OpenAI, Anthropic, Ollama, etc. |
+| `offline-llm` | LLM providers | OpenAI, Anthropic, etc. |
 | `offline` | Complete offline package | API + Storage + LLM (all features) |
 
 **Note**: Document processing (PDF, DOCX, PPTX, XLSX) is included in the `api` extras group. The previous `offline-docs` group has been merged into `api` for better integration.

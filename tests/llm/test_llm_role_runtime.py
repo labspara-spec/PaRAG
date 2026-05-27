@@ -978,10 +978,10 @@ async def test_cross_provider_update_does_not_inherit_base_kwargs(tmp_path):
     rag.register_role_llm_builder(builder)
     rag.set_role_llm_metadata(
         "query",
-        base_binding="ollama",
-        binding="ollama",
-        model="base-ollama",
-        host="http://base-host:11434",
+        base_binding="lollms",
+        binding="lollms",
+        model="base-lollms",
+        host="http://base-host:9600",
         api_key="base-key",
         provider_options={"temperature": 0.1},
         is_cross_provider=False,

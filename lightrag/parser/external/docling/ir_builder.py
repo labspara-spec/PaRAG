@@ -151,6 +151,7 @@ class DoclingIRBuilder:
         cb_level = 0
         cb_parents: list[str] = []
         cb_has_body = False
+        cb_page_number: int | None = None
 
         visited: set[str] = set()
         kv_count = len(doc.get("key_value_items") or [])
@@ -160,7 +161,7 @@ class DoclingIRBuilder:
 
         def _flush_block() -> None:
             nonlocal cb_lines, cb_tables, cb_drawings, cb_equations
-            nonlocal cb_page_set, cb_bbox_positions, cb_has_body
+            nonlocal cb_page_set, cb_bbox_positions, cb_has_body, cb_page_number
             has_payload = bool(cb_lines or cb_tables or cb_drawings or cb_equations)
             if not has_payload:
                 return
@@ -185,6 +186,7 @@ class DoclingIRBuilder:
                     tables=list(cb_tables),
                     drawings=list(cb_drawings),
                     equations=list(cb_equations),
+                    page_number=cb_page_number,
                 )
             )
             cb_lines = []
@@ -194,6 +196,7 @@ class DoclingIRBuilder:
             cb_page_set = set()
             cb_bbox_positions = []
             cb_has_body = False
+            cb_page_number = None
 
         def _open_block(heading: str, level: int, parents: list[str]) -> None:
             nonlocal cb_heading, cb_level, cb_parents
@@ -216,11 +219,19 @@ class DoclingIRBuilder:
             return True
 
         def _record_positions(item: dict) -> None:
+            nonlocal cb_page_number
             for prov in item.get("prov") or []:
                 if not isinstance(prov, dict):
                     continue
                 bbox = prov.get("bbox") or {}
                 page_raw = prov.get("page_no")
+                if page_raw is not None:
+                    try:
+                        pn = int(page_raw)
+                        if cb_page_number is None or pn < cb_page_number:
+                            cb_page_number = pn
+                    except (TypeError, ValueError):
+                        pass
                 charspan = prov.get("charspan")
                 if isinstance(bbox, dict) and all(
                     k in bbox for k in ("l", "t", "r", "b")

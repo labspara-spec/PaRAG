@@ -88,7 +88,7 @@ def test_bedrock_binding_requires_sigv4_pair_or_bearer_token(monkeypatch):
     _clear_bedrock_auth_env(monkeypatch)
     monkeypatch.setattr(sys, "argv", ["lightrag-server"])
     monkeypatch.setenv("LLM_BINDING", "bedrock")
-    monkeypatch.setenv("EMBEDDING_BINDING", "ollama")
+    monkeypatch.setenv("EMBEDDING_BINDING", "openai")
 
     with pytest.raises(ValueError, match="Bedrock LLM binding requires"):
         parse_args()
@@ -98,7 +98,7 @@ def test_bedrock_binding_rejects_partial_sigv4_pair(monkeypatch):
     _clear_bedrock_auth_env(monkeypatch)
     monkeypatch.setattr(sys, "argv", ["lightrag-server"])
     monkeypatch.setenv("LLM_BINDING", "bedrock")
-    monkeypatch.setenv("EMBEDDING_BINDING", "ollama")
+    monkeypatch.setenv("EMBEDDING_BINDING", "openai")
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "akid")
 
     with pytest.raises(ValueError, match="Bedrock LLM binding requires"):
@@ -109,7 +109,7 @@ def test_bedrock_binding_accepts_sigv4_pair(monkeypatch):
     _clear_bedrock_auth_env(monkeypatch)
     monkeypatch.setattr(sys, "argv", ["lightrag-server"])
     monkeypatch.setenv("LLM_BINDING", "bedrock")
-    monkeypatch.setenv("EMBEDDING_BINDING", "ollama")
+    monkeypatch.setenv("EMBEDDING_BINDING", "openai")
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "akid")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "secret")
 
@@ -122,7 +122,7 @@ def test_bedrock_binding_accepts_bearer_token(monkeypatch):
     _clear_bedrock_auth_env(monkeypatch)
     monkeypatch.setattr(sys, "argv", ["lightrag-server"])
     monkeypatch.setenv("LLM_BINDING", "bedrock")
-    monkeypatch.setenv("EMBEDDING_BINDING", "ollama")
+    monkeypatch.setenv("EMBEDDING_BINDING", "openai")
     monkeypatch.setenv("AWS_BEARER_TOKEN_BEDROCK", "absk-test")
 
     args = parse_args()

@@ -1421,6 +1421,64 @@ class PostgreSQLDB:
                     f"Failed to add column {col_name} to LIGHTRAG_DOC_CHUNKS: {e}"
                 )
 
+    async def _migrate_chunks_add_extended_meta(self):
+        """Add section-aware metadata + permission columns to LIGHTRAG_DOC_CHUNKS and LIGHTRAG_VDB_CHUNKS."""
+        new_columns = [
+            ("page_number", "INTEGER NULL"),
+            ("section_path", "JSONB NULL"),
+            ("file_name", "TEXT NULL"),
+            ("file_type", "VARCHAR(32) NULL"),
+            ("file_size_bytes", "BIGINT NULL"),
+            ("ingested_at", "TIMESTAMPTZ NULL"),
+            ("processed_at", "TIMESTAMPTZ NULL"),
+            ("chunk_char_count", "INTEGER NULL"),
+            ("visibility", "VARCHAR(16) NULL"),
+            ("allowed_users", "TEXT[] NULL"),
+            ("allowed_roles", "TEXT[] NULL"),
+            ("chunk_allowed_users", "TEXT[] NULL"),
+            ("chunk_allowed_roles", "TEXT[] NULL"),
+            ("owner", "TEXT NULL"),
+        ]
+        for table in ("LIGHTRAG_DOC_CHUNKS", "LIGHTRAG_VDB_CHUNKS"):
+            try:
+                existing = await self.query(
+                    """
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_name = $1
+                      AND column_name = ANY($2)
+                    """,
+                    [table.lower(), [c for c, _ in new_columns]],
+                    multirows=True,
+                )
+                existing_names = {row["column_name"] for row in (existing or [])}
+            except Exception as e:
+                logger.warning(f"Failed to inspect {table} columns: {e}")
+                existing_names = set()
+
+            for col_name, col_type in new_columns:
+                if col_name in existing_names:
+                    continue
+                try:
+                    await self.execute(
+                        f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col_name} {col_type}"
+                    )
+                    logger.info(f"Added column {col_name} to {table}")
+                except Exception as e:
+                    logger.error(f"Failed to add {col_name} to {table}: {e}")
+
+        # Index for fast per-file and per-type lookups
+        for idx_sql in [
+            "CREATE INDEX IF NOT EXISTS idx_doc_chunks_file_type ON LIGHTRAG_DOC_CHUNKS (workspace, file_type)",
+            "CREATE INDEX IF NOT EXISTS idx_doc_chunks_visibility ON LIGHTRAG_DOC_CHUNKS (workspace, visibility)",
+            "CREATE INDEX IF NOT EXISTS idx_vdb_chunks_file_type ON LIGHTRAG_VDB_CHUNKS (workspace, file_type)",
+            "CREATE INDEX IF NOT EXISTS idx_vdb_chunks_visibility ON LIGHTRAG_VDB_CHUNKS (workspace, visibility)",
+        ]:
+            try:
+                await self.execute(idx_sql)
+            except Exception as e:
+                logger.warning(f"Failed to create index: {e}")
+
     async def _migrate_field_lengths(self):
         """Migrate database field lengths: entity_name, source_id, target_id, and file_path"""
         # Define the field changes needed
@@ -1756,6 +1814,14 @@ class PostgreSQLDB:
         except Exception as e:
             logger.error(
                 f"PostgreSQL, Failed to migrate LIGHTRAG_DOC_CHUNKS heading/sidecar fields: {e}"
+            )
+
+        # Migrate LIGHTRAG_DOC_CHUNKS and LIGHTRAG_VDB_CHUNKS to add section/meta/permission columns
+        try:
+            await self._migrate_chunks_add_extended_meta()
+        except Exception as e:
+            logger.error(
+                f"PostgreSQL, Failed to migrate chunk extended metadata fields: {e}"
             )
 
     async def _migrate_create_full_entities_relations_tables(self):
@@ -2765,7 +2831,16 @@ class PGKVStorage(BaseKVStorage):
             for i, (k, v) in enumerate(data.items(), start=1):
                 # Tuple order must match SQL: (workspace, id, tokens, chunk_order_index,
                 #   full_doc_id, content, file_path, llm_cache_list, heading, sidecar,
+                #   page_number, section_path, file_name, file_type, file_size_bytes,
+                #   ingested_at, processed_at, chunk_char_count,
+                #   visibility, allowed_users, allowed_roles,
+                #   chunk_allowed_users, chunk_allowed_roles, owner,
                 #   create_time, update_time)
+                _sp = v.get("section_path")
+                _au = v.get("allowed_users")
+                _ar = v.get("allowed_roles")
+                _cau = v.get("chunk_allowed_users")
+                _car = v.get("chunk_allowed_roles")
                 batch_values.append(
                     (
                         self.workspace,
@@ -2778,6 +2853,20 @@ class PGKVStorage(BaseKVStorage):
                         json.dumps(v.get("llm_cache_list", [])),
                         json.dumps(v.get("heading") or {}),
                         json.dumps(v.get("sidecar") or {}),
+                        v.get("page_number"),
+                        json.dumps(_sp) if _sp is not None else None,
+                        v.get("file_name"),
+                        v.get("file_type"),
+                        v.get("file_size_bytes"),
+                        v.get("ingested_at"),
+                        v.get("processed_at"),
+                        v.get("chunk_char_count"),
+                        v.get("visibility"),
+                        _au if _au is not None else None,
+                        _ar if _ar is not None else None,
+                        _cau if _cau is not None else None,
+                        _car if _car is not None else None,
+                        v.get("owner"),
                         current_time,
                         current_time,
                     )
@@ -3548,6 +3637,11 @@ class PGVectorStorage(BaseVectorStorage):
             upsert_sql = SQL_TEMPLATES["upsert_chunk"].format(
                 table_name=self.table_name
             )
+            _sp = item.get("section_path")
+            _au = item.get("allowed_users")
+            _ar = item.get("allowed_roles")
+            _cau = item.get("chunk_allowed_users")
+            _car = item.get("chunk_allowed_roles")
             # Return tuple in the exact order of SQL parameters ($1, $2, ...)
             values: tuple[Any, ...] = (
                 self.workspace,  # $1
@@ -3558,8 +3652,22 @@ class PGVectorStorage(BaseVectorStorage):
                 item["content"],  # $6
                 item["__vector__"],  # $7 - numpy array, handled by pgvector codec
                 item["file_path"],  # $8
-                current_time,  # $9
-                current_time,  # $10
+                item.get("page_number"),  # $9
+                json.dumps(_sp) if _sp is not None else None,  # $10
+                item.get("file_name"),  # $11
+                item.get("file_type"),  # $12
+                item.get("file_size_bytes"),  # $13
+                item.get("ingested_at"),  # $14
+                item.get("processed_at"),  # $15
+                item.get("chunk_char_count"),  # $16
+                item.get("visibility"),  # $17
+                _au if _au is not None else None,  # $18
+                _ar if _ar is not None else None,  # $19
+                _cau if _cau is not None else None,  # $20
+                _car if _car is not None else None,  # $21
+                item.get("owner"),  # $22
+                current_time,  # $23
+                current_time,  # $24
             )
         except Exception as e:
             logger.error(
@@ -6825,6 +6933,20 @@ TABLES = {
                     llm_cache_list JSONB NULL DEFAULT '[]'::jsonb,
                     heading JSONB NULL DEFAULT '{}'::jsonb,
                     sidecar JSONB NULL DEFAULT '{}'::jsonb,
+                    page_number INTEGER NULL,
+                    section_path JSONB NULL,
+                    file_name TEXT NULL,
+                    file_type VARCHAR(32) NULL,
+                    file_size_bytes BIGINT NULL,
+                    ingested_at TIMESTAMPTZ NULL,
+                    processed_at TIMESTAMPTZ NULL,
+                    chunk_char_count INTEGER NULL,
+                    visibility VARCHAR(16) NULL,
+                    allowed_users TEXT[] NULL,
+                    allowed_roles TEXT[] NULL,
+                    chunk_allowed_users TEXT[] NULL,
+                    chunk_allowed_roles TEXT[] NULL,
+                    owner TEXT NULL,
                     create_time TIMESTAMP(0) DEFAULT CURRENT_TIMESTAMP,
                     update_time TIMESTAMP(0) DEFAULT CURRENT_TIMESTAMP,
 	                CONSTRAINT LIGHTRAG_DOC_CHUNKS_PK PRIMARY KEY (workspace, id)
@@ -6840,6 +6962,20 @@ TABLES = {
                     content TEXT,
                     content_vector VECTOR(dimension),
                     file_path TEXT NULL,
+                    page_number INTEGER NULL,
+                    section_path JSONB NULL,
+                    file_name TEXT NULL,
+                    file_type VARCHAR(32) NULL,
+                    file_size_bytes BIGINT NULL,
+                    ingested_at TIMESTAMPTZ NULL,
+                    processed_at TIMESTAMPTZ NULL,
+                    chunk_char_count INTEGER NULL,
+                    visibility VARCHAR(16) NULL,
+                    allowed_users TEXT[] NULL,
+                    allowed_roles TEXT[] NULL,
+                    chunk_allowed_users TEXT[] NULL,
+                    chunk_allowed_roles TEXT[] NULL,
+                    owner TEXT NULL,
                     create_time TIMESTAMP(0) DEFAULT CURRENT_TIMESTAMP,
                     update_time TIMESTAMP(0) DEFAULT CURRENT_TIMESTAMP,
 	                CONSTRAINT LIGHTRAG_VDB_CHUNKS_PK PRIMARY KEY (workspace, id)
@@ -7106,18 +7242,39 @@ SQL_TEMPLATES = {
                                      """,
     "upsert_text_chunk": """INSERT INTO LIGHTRAG_DOC_CHUNKS (workspace, id, tokens,
                       chunk_order_index, full_doc_id, content, file_path, llm_cache_list,
-                      heading, sidecar, create_time, update_time)
-                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                      heading, sidecar,
+                      page_number, section_path, file_name, file_type, file_size_bytes,
+                      ingested_at, processed_at, chunk_char_count,
+                      visibility, allowed_users, allowed_roles,
+                      chunk_allowed_users, chunk_allowed_roles, owner,
+                      create_time, update_time)
+                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+                              $11, $12, $13, $14, $15, $16, $17, $18,
+                              $19, $20, $21, $22, $23, $24, $25, $26)
                       ON CONFLICT (workspace,id) DO UPDATE
                       SET tokens=EXCLUDED.tokens,
                       chunk_order_index=EXCLUDED.chunk_order_index,
                       full_doc_id=EXCLUDED.full_doc_id,
-                      content = EXCLUDED.content,
+                      content=EXCLUDED.content,
                       file_path=EXCLUDED.file_path,
                       llm_cache_list=EXCLUDED.llm_cache_list,
                       heading=EXCLUDED.heading,
                       sidecar=EXCLUDED.sidecar,
-                      update_time = EXCLUDED.update_time
+                      page_number=EXCLUDED.page_number,
+                      section_path=EXCLUDED.section_path,
+                      file_name=EXCLUDED.file_name,
+                      file_type=EXCLUDED.file_type,
+                      file_size_bytes=EXCLUDED.file_size_bytes,
+                      ingested_at=EXCLUDED.ingested_at,
+                      processed_at=EXCLUDED.processed_at,
+                      chunk_char_count=EXCLUDED.chunk_char_count,
+                      visibility=EXCLUDED.visibility,
+                      allowed_users=EXCLUDED.allowed_users,
+                      allowed_roles=EXCLUDED.allowed_roles,
+                      chunk_allowed_users=EXCLUDED.chunk_allowed_users,
+                      chunk_allowed_roles=EXCLUDED.chunk_allowed_roles,
+                      owner=EXCLUDED.owner,
+                      update_time=EXCLUDED.update_time
                      """,
     "upsert_full_entities": """INSERT INTO LIGHTRAG_FULL_ENTITIES (workspace, id, entity_names, count,
                       create_time, update_time)
@@ -7154,16 +7311,36 @@ SQL_TEMPLATES = {
     # SQL for VectorStorage
     "upsert_chunk": """INSERT INTO {table_name} (workspace, id, tokens,
                       chunk_order_index, full_doc_id, content, content_vector, file_path,
+                      page_number, section_path, file_name, file_type, file_size_bytes,
+                      ingested_at, processed_at, chunk_char_count,
+                      visibility, allowed_users, allowed_roles,
+                      chunk_allowed_users, chunk_allowed_roles, owner,
                       create_time, update_time)
-                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
+                              $9, $10, $11, $12, $13, $14, $15, $16,
+                              $17, $18, $19, $20, $21, $22, $23, $24)
                       ON CONFLICT (workspace,id) DO UPDATE
                       SET tokens=EXCLUDED.tokens,
                       chunk_order_index=EXCLUDED.chunk_order_index,
                       full_doc_id=EXCLUDED.full_doc_id,
-                      content = EXCLUDED.content,
+                      content=EXCLUDED.content,
                       content_vector=EXCLUDED.content_vector,
                       file_path=EXCLUDED.file_path,
-                      update_time = EXCLUDED.update_time
+                      page_number=EXCLUDED.page_number,
+                      section_path=EXCLUDED.section_path,
+                      file_name=EXCLUDED.file_name,
+                      file_type=EXCLUDED.file_type,
+                      file_size_bytes=EXCLUDED.file_size_bytes,
+                      ingested_at=EXCLUDED.ingested_at,
+                      processed_at=EXCLUDED.processed_at,
+                      chunk_char_count=EXCLUDED.chunk_char_count,
+                      visibility=EXCLUDED.visibility,
+                      allowed_users=EXCLUDED.allowed_users,
+                      allowed_roles=EXCLUDED.allowed_roles,
+                      chunk_allowed_users=EXCLUDED.chunk_allowed_users,
+                      chunk_allowed_roles=EXCLUDED.chunk_allowed_roles,
+                      owner=EXCLUDED.owner,
+                      update_time=EXCLUDED.update_time
                      """,
     "upsert_entity": """INSERT INTO {table_name} (workspace, id, entity_name, content,
                       content_vector, chunk_ids, file_path, create_time, update_time)

@@ -497,17 +497,17 @@ class EmbeddingFunc:
     Using functools.partial for parameter binding:
         A common pattern is to use functools.partial to pre-bind model and host parameters
         to an embedding function. When the base embedding function is already decorated with
-        @wrap_embedding_func_with_attrs (e.g., ollama_embed), use `.func` to access the
-        original unwrapped function to avoid double wrapping:
+        @wrap_embedding_func_with_attrs, use `.func` to access the original unwrapped function
+        to avoid double wrapping:
 
         Example:
             from functools import partial
 
             # ❌ Wrong - causes double wrapping (inner EmbeddingFunc still executes)
-            func=partial(ollama_embed, embed_model="bge-m3:latest", host="http://localhost:11434")
+            func=partial(some_embed_func, model="my-model", base_url="http://localhost:8000")
 
             # ✅ Correct - access the unwrapped function via .func
-            func=partial(ollama_embed.func, embed_model="bge-m3:latest", host="http://localhost:11434")
+            func=partial(some_embed_func.func, model="my-model", base_url="http://localhost:8000")
 
     Context-aware embedding:
         The wrapper supports passing a 'context' parameter to distinguish between query and document
@@ -2535,7 +2535,7 @@ async def use_llm_func_with_cache(
         cache_keys_collector: Optional list to collect cache keys for batch processing
         response_format: Structured output control forwarded to the LLM provider.
             Providers translate this to their native structured-output surface
-            (OpenAI response_format, Ollama format, Gemini response_mime_type/schema).
+            (OpenAI response_format, Gemini response_mime_type/schema).
             ``{"type": "json_object"}`` requests JSON output; typed/schema payloads
             trigger schema-constrained output where supported; ``None`` leaves
             output unconstrained. Providers that do not support structured output

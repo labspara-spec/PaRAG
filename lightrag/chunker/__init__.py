@@ -26,6 +26,10 @@ Two contracts coexist intentionally:
 
     Currently shipped file chunkers:
 
+      - :func:`chunking_by_section_aware` — the ``"S"`` strategy (**default**).
+        Detects document structure (headings, sections) for each file type and
+        chunks within sections.  Attaches ``heading`` + ``section_path`` to
+        every chunk.  Falls back to R when no sections are detected.
       - :func:`chunking_by_fixed_token` — the ``"F"`` strategy. Same
         algorithm as :func:`chunking_by_token_size`, surfaced under the
         new contract.
@@ -51,6 +55,7 @@ from lightrag.chunker.paragraph_semantic import chunking_by_paragraph_semantic
 from lightrag.chunker.recursive_character import (
     chunking_by_recursive_character,
 )
+from lightrag.chunker.section_aware import chunking_by_section_aware
 from lightrag.chunker.semantic_vector import chunking_by_semantic_vector
 from lightrag.chunker.token_size import (
     chunking_by_fixed_token,
@@ -61,6 +66,7 @@ __all__ = [
     "chunking_by_fixed_token",
     "chunking_by_paragraph_semantic",
     "chunking_by_recursive_character",
+    "chunking_by_section_aware",
     "chunking_by_semantic_vector",
     "chunking_by_token_size",
 ]

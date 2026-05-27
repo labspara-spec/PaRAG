@@ -315,6 +315,7 @@ class NativeDocxIRBuilder:
                     tables=builder.tables,
                     drawings=builder.drawings,
                     equations=builder.equations,
+                    page_number=block.get("page_number"),
                 )
             )
 

@@ -21,6 +21,7 @@ from lightrag.constants import (
     PARSER_ENGINE_SUFFIX_CAPABILITIES,
     PROCESS_OPTION_CHUNK_CHARS,
     PROCESS_OPTION_CHUNK_FIXED,
+    PROCESS_OPTION_CHUNK_SECTION,
     PROCESS_OPTION_CHUNK_VECTOR,
     PROCESS_OPTION_CHUNK_PARAGRAH,
     PROCESS_OPTION_CHUNK_RECURSIVE,
@@ -83,7 +84,7 @@ class ProcessOptions:
     tables: bool = False
     equations: bool = False
     skip_kg: bool = False
-    chunking: ProcessChunkingOption = PROCESS_OPTION_CHUNK_FIXED
+    chunking: ProcessChunkingOption = PROCESS_OPTION_CHUNK_SECTION
 
     @property
     def chunking_explicit(self) -> bool:
@@ -92,7 +93,7 @@ class ProcessOptions:
         Distinguishes "user explicitly opted into a chunking strategy"
         from "no chunking selector supplied — pipeline used the default".
         ``chunking`` itself is unreliable for this question because it
-        falls back to :data:`PROCESS_OPTION_CHUNK_FIXED` in both cases.
+        falls back to :data:`PROCESS_OPTION_CHUNK_SECTION` in both cases.
         Used by ``process_single_document`` to decide whether to
         dispatch via the new file-chunker contract or to honor the
         legacy externally-supplied :attr:`LightRAG.chunking_func`.
@@ -135,7 +136,7 @@ def validate_process_options(
         errors.append(
             f"{label} specifies multiple chunking modes "
             f"({'/'.join(seen_chunkers)}); pick one of "
-            f"{PROCESS_OPTION_CHUNK_FIXED}/{PROCESS_OPTION_CHUNK_RECURSIVE}/{PROCESS_OPTION_CHUNK_VECTOR}/{PROCESS_OPTION_CHUNK_PARAGRAH}"
+            f"{PROCESS_OPTION_CHUNK_SECTION}/{PROCESS_OPTION_CHUNK_FIXED}/{PROCESS_OPTION_CHUNK_RECURSIVE}/{PROCESS_OPTION_CHUNK_VECTOR}/{PROCESS_OPTION_CHUNK_PARAGRAH}"
         )
     return errors
 
@@ -146,7 +147,7 @@ def parse_process_options(options: Any) -> ProcessOptions:
     if not raw:
         return _PROCESS_OPTION_DEFAULT
     chars = set(raw)
-    chunking: ProcessChunkingOption = PROCESS_OPTION_CHUNK_FIXED
+    chunking: ProcessChunkingOption = PROCESS_OPTION_CHUNK_SECTION
     # Pick the first chunking selector encountered; validate_process_options
     # already filters duplicates upstream.
     for ch in raw:

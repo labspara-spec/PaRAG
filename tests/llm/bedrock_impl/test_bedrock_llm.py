@@ -486,11 +486,6 @@ class _FakeLightRAG:
         return self.rerank_queue_status_snapshot
 
 
-class _FakeOllamaAPI:
-    def __init__(self, *_args, **_kwargs):
-        self.router = APIRouter()
-
-
 def _make_args(tmp_path) -> SimpleNamespace:
     return SimpleNamespace(
         host="127.0.0.1",
@@ -594,7 +589,6 @@ async def test_create_app_query_role_uses_bedrock_binding(tmp_path, monkeypatch)
     monkeypatch.setattr(
         lightrag_server, "create_graph_routes", lambda *_args, **_kwargs: APIRouter()
     )
-    monkeypatch.setattr(lightrag_server, "OllamaAPI", _FakeOllamaAPI)
 
     args = _make_args(tmp_path)
 
@@ -651,7 +645,6 @@ async def test_create_app_bedrock_query_role_uses_role_sigv4_credentials(
     monkeypatch.setattr(
         lightrag_server, "create_graph_routes", lambda *_args, **_kwargs: APIRouter()
     )
-    monkeypatch.setattr(lightrag_server, "OllamaAPI", _FakeOllamaAPI)
 
     args = _make_args(tmp_path)
     args.query_aws_region = "us-west-2"
@@ -700,7 +693,6 @@ async def test_create_app_keyword_openai_role_forwards_nested_extra_body(
     monkeypatch.setattr(
         lightrag_server, "create_graph_routes", lambda *_args, **_kwargs: APIRouter()
     )
-    monkeypatch.setattr(lightrag_server, "OllamaAPI", _FakeOllamaAPI)
 
     args = _make_args(tmp_path)
     args.keyword_llm_binding = "openai"
@@ -785,7 +777,6 @@ def test_health_role_llm_config_uses_runtime_snapshot(tmp_path, monkeypatch):
     monkeypatch.setattr(
         lightrag_server, "create_graph_routes", lambda *_args, **_kwargs: APIRouter()
     )
-    monkeypatch.setattr(lightrag_server, "OllamaAPI", _FakeOllamaAPI)
     monkeypatch.setattr(
         lightrag_server,
         "get_namespace_data",
@@ -873,7 +864,6 @@ def test_health_pipeline_active_derivation(
     monkeypatch.setattr(
         lightrag_server, "create_graph_routes", lambda *_args, **_kwargs: APIRouter()
     )
-    monkeypatch.setattr(lightrag_server, "OllamaAPI", _FakeOllamaAPI)
     monkeypatch.setattr(
         lightrag_server,
         "get_namespace_data",

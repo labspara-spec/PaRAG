@@ -3189,6 +3189,28 @@ class OpenSearchVectorDBStorage(BaseVectorStorage):
                         f"[{self.workspace}] Could not read vector mapping for index "
                         f"'{self._index_name}'; skipping dimension validation"
                     )
+                # Extend existing index mapping with new metadata fields if absent.
+                _new_props = {
+                    "page_number": {"type": "integer"},
+                    "file_type": {"type": "keyword"},
+                    "file_name": {"type": "keyword"},
+                    "section_path": {"type": "keyword"},
+                    "file_size_bytes": {"type": "long"},
+                    "ingested_at": {"type": "date"},
+                    "processed_at": {"type": "date"},
+                    "chunk_char_count": {"type": "integer"},
+                    "visibility": {"type": "keyword"},
+                    "owner": {"type": "keyword"},
+                }
+                try:
+                    await self.client.indices.put_mapping(
+                        index=self._index_name,
+                        body={"properties": _new_props},
+                    )
+                except Exception as _map_err:
+                    logger.debug(
+                        f"[{self.workspace}] Could not extend index mapping (non-fatal): {_map_err}"
+                    )
                 return
 
             ef_construction = int(
@@ -3227,6 +3249,16 @@ class OpenSearchVectorDBStorage(BaseVectorStorage):
                         "tgt_id": {"type": "keyword"},
                         "file_path": {"type": "keyword"},
                         "created_at": {"type": "long"},
+                        "page_number": {"type": "integer"},
+                        "file_type": {"type": "keyword"},
+                        "file_name": {"type": "keyword"},
+                        "section_path": {"type": "keyword"},
+                        "file_size_bytes": {"type": "long"},
+                        "ingested_at": {"type": "date"},
+                        "processed_at": {"type": "date"},
+                        "chunk_char_count": {"type": "integer"},
+                        "visibility": {"type": "keyword"},
+                        "owner": {"type": "keyword"},
                     },
                     "dynamic": True,
                 },

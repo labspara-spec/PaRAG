@@ -58,8 +58,6 @@ from lightrag.parser.routing import (
 from lightrag.parser.external.mineru.cache import MinerUParserOptions
 from lightrag.api.routers.query_routes import create_query_routes
 from lightrag.api.routers.graph_routes import create_graph_routes
-from lightrag.api.routers.ollama_api import OllamaAPI
-
 from lightrag.utils import logger, set_verbose_debug
 from lightrag.kg.shared_storage import (
     get_namespace_data,
@@ -546,8 +544,6 @@ class LLMConfigCache:
         self.openai_llm_options = None
         self.gemini_llm_options = None
         self.gemini_embedding_options = None
-        self.ollama_llm_options = None
-        self.ollama_embedding_options = None
         self.bedrock_llm_options = None
 
         # Only initialize and log OpenAI options when using OpenAI-related bindings
@@ -568,36 +564,6 @@ class LLMConfigCache:
 
             self.bedrock_llm_options = BedrockLLMOptions.options_dict(args)
             logger.info(f"Bedrock LLM Options: {self.bedrock_llm_options}")
-
-        # Only initialize and log Ollama LLM options when using Ollama LLM binding
-        if args.llm_binding == "ollama":
-            try:
-                from lightrag.llm.binding_options import OllamaLLMOptions
-
-                self.ollama_llm_options = OllamaLLMOptions.options_dict(args)
-                logger.info(f"Ollama LLM Options: {self.ollama_llm_options}")
-            except ImportError:
-                logger.warning(
-                    "OllamaLLMOptions not available, using default configuration"
-                )
-                self.ollama_llm_options = {}
-
-        # Only initialize and log Ollama Embedding options when using Ollama Embedding binding
-        if args.embedding_binding == "ollama":
-            try:
-                from lightrag.llm.binding_options import OllamaEmbeddingOptions
-
-                self.ollama_embedding_options = OllamaEmbeddingOptions.options_dict(
-                    args
-                )
-                logger.info(
-                    f"Ollama Embedding Options: {self.ollama_embedding_options}"
-                )
-            except ImportError:
-                logger.warning(
-                    "OllamaEmbeddingOptions not available, using default configuration"
-                )
-                self.ollama_embedding_options = {}
 
         # Only initialize and log Gemini Embedding options when using Gemini Embedding binding
         if args.embedding_binding == "gemini":
@@ -622,7 +588,6 @@ _PROVIDER_LOG_LABELS = {
     "bedrock": "Bedrock",
     "gemini": "Gemini",
     "lollms": "Lollms",
-    "ollama": "Ollama",
     "openai": "OpenAI",
 }
 
@@ -812,7 +777,6 @@ def create_app(args):
     # Verify that bindings are correctly setup
     if args.llm_binding not in [
         "lollms",
-        "ollama",
         "openai",
         "azure_openai",
         "bedrock",
@@ -822,7 +786,6 @@ def create_app(args):
 
     if args.embedding_binding not in [
         "lollms",
-        "ollama",
         "openai",
         "azure_openai",
         "bedrock",
@@ -889,7 +852,7 @@ def create_app(args):
                 )
 
     base_description = (
-        "Providing API for LightRAG core, Web UI and Ollama Model Emulation"
+        "Providing API for LightRAG core and Web UI"
     )
     swagger_description = (
         base_description
@@ -1133,10 +1096,6 @@ def create_app(args):
                 from lightrag.llm.lollms import lollms_model_complete
 
                 return lollms_model_complete
-            elif binding == "ollama":
-                from lightrag.llm.ollama import ollama_model_complete
-
-                return ollama_model_complete
             elif binding == "bedrock":
                 return bedrock_model_complete  # Already defined locally
             elif binding == "azure_openai":
@@ -1157,18 +1116,12 @@ def create_app(args):
         Create LLM model kwargs based on binding type.
         Uses lazy import for binding-specific options.
         """
-        if binding in ["lollms", "ollama"]:
-            try:
-                from lightrag.llm.binding_options import OllamaLLMOptions
-
-                return {
-                    "host": args.llm_binding_host,
-                    "timeout": llm_timeout,
-                    "options": OllamaLLMOptions.options_dict(args),
-                    "api_key": args.llm_binding_api_key,
-                }
-            except ImportError as e:
-                raise Exception(f"Failed to import {binding} options: {e}")
+        if binding == "lollms":
+            return {
+                "host": args.llm_binding_host,
+                "timeout": llm_timeout,
+                "api_key": args.llm_binding_api_key,
+            }
         return {}
 
     def resolve_role_llm_settings(
@@ -1229,12 +1182,8 @@ def create_app(args):
                 role_provider_options = GeminiLLMOptions.options_dict_for_role(
                     args, role, is_cross_provider
                 )
-            elif role_binding in ["lollms", "ollama"]:
-                from lightrag.llm.binding_options import OllamaLLMOptions
-
-                role_provider_options = OllamaLLMOptions.options_dict_for_role(
-                    args, role, is_cross_provider
-                )
+            elif role_binding == "lollms":
+                role_provider_options = {}
             elif role_binding == "bedrock":
                 from lightrag.llm.binding_options import BedrockLLMOptions
 
@@ -1290,36 +1239,6 @@ def create_app(args):
         bedrock_aws_options = settings["bedrock_aws_options"]
 
         try:
-            if role_binding == "ollama":
-                from lightrag.llm.ollama import _ollama_model_if_cache
-
-                async def role_ollama_complete(
-                    prompt,
-                    system_prompt=None,
-                    history_messages=None,
-                    enable_cot: bool = False,
-                    **kwargs,
-                ):
-                    # response_format and legacy extraction booleans flow
-                    # through kwargs to _ollama_model_if_cache, which handles
-                    # the deprecation shim and emits a single warning.
-                    if history_messages is None:
-                        history_messages = []
-                    if role_provider_options:
-                        kwargs.setdefault("options", dict(role_provider_options))
-                    return await _ollama_model_if_cache(
-                        role_model,
-                        prompt,
-                        system_prompt=system_prompt,
-                        history_messages=history_messages,
-                        enable_cot=enable_cot,
-                        host=role_host,
-                        timeout=role_timeout,
-                        api_key=role_apikey,
-                        **kwargs,
-                    )
-
-                return role_ollama_complete
             if role_binding == "lollms":
                 from lightrag.llm.lollms import lollms_model_if_cache
 
@@ -1511,10 +1430,6 @@ def create_app(args):
                 from lightrag.llm.openai import openai_embed
 
                 provider_func = openai_embed
-            elif binding == "ollama":
-                from lightrag.llm.ollama import ollama_embed
-
-                provider_func = ollama_embed
             elif binding == "gemini":
                 from lightrag.llm.gemini import gemini_embed
 
@@ -1591,40 +1506,6 @@ def create_app(args):
                     # lollms embed_model is not used (server uses configured vectorizer)
                     # Only pass base_url and api_key
                     return await actual_func(texts, base_url=host, api_key=api_key)
-                elif binding == "ollama":
-                    from lightrag.llm.ollama import ollama_embed
-
-                    # Get real function, skip EmbeddingFunc wrapper if present
-                    actual_func = (
-                        ollama_embed.func
-                        if isinstance(ollama_embed, EmbeddingFunc)
-                        else ollama_embed
-                    )
-
-                    # Use pre-processed configuration if available
-                    if config_cache.ollama_embedding_options is not None:
-                        ollama_options = config_cache.ollama_embedding_options
-                    else:
-                        from lightrag.llm.binding_options import OllamaEmbeddingOptions
-
-                        ollama_options = OllamaEmbeddingOptions.options_dict(args)
-
-                    # Pass embed_model only if provided, let function use its default (bge-m3:latest)
-                    kwargs = {
-                        "texts": texts,
-                        "host": host,
-                        "api_key": api_key,
-                        "options": ollama_options,
-                    }
-                    if provider_supports_asymmetric and asymmetric_opt_in:
-                        kwargs["context"] = context
-                        if query_prefix:
-                            kwargs["query_prefix"] = query_prefix
-                        if document_prefix:
-                            kwargs["document_prefix"] = document_prefix
-                    if model:
-                        kwargs["embed_model"] = model
-                    return await actual_func(**kwargs)
                 elif binding == "azure_openai":
                     from lightrag.llm.azure_openai import azure_openai_embed
 
@@ -1958,13 +1839,6 @@ def create_app(args):
     else:
         logger.info("Reranking is disabled")
 
-    # Create ollama_server_infos from command line arguments
-    from lightrag.api.config import OllamaServerInfos
-
-    ollama_server_infos = OllamaServerInfos(
-        name=args.simulated_model_name, tag=args.simulated_model_tag
-    )
-
     # LightRAG.__post_init__ normalizes addon_params and backfills env-based defaults
     # (SUMMARY_LANGUAGE, ENTITY_TYPE_PROMPT_FILE, ...), so we only need to pass the
     # API-level overrides here.
@@ -2015,7 +1889,6 @@ def create_app(args):
             max_parallel_insert=args.max_parallel_insert,
             max_graph_nodes=args.max_graph_nodes,
             addon_params=addon_params,
-            ollama_server_infos=ollama_server_infos,
             role_llm_configs={
                 spec.name: RoleLLMConfig(
                     func=role_llm_configs[spec.name]["func"],
@@ -2061,10 +1934,6 @@ def create_app(args):
     app.include_router(create_document_routes(rag, doc_manager, api_key))
     app.include_router(create_query_routes(rag, api_key, args.top_k))
     app.include_router(create_graph_routes(rag, api_key))
-
-    # Add Ollama API routes
-    ollama_api = OllamaAPI(rag, top_k=args.top_k, api_key=api_key)
-    app.include_router(ollama_api.router, prefix="/api")
 
     # Custom Swagger UI endpoint for offline support
     @app.get("/docs", include_in_schema=False)

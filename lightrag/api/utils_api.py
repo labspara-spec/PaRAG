@@ -19,7 +19,7 @@ from fastapi import HTTPException, Security, Request, Response, status
 from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 from starlette.status import HTTP_403_FORBIDDEN
 from .auth import auth_handler
-from .config import ollama_server_infos, global_args, get_env_value
+from .config import global_args, get_env_value
 
 logger = logging.getLogger("lightrag")
 
@@ -319,8 +319,6 @@ def display_splash_screen(args: argparse.Namespace) -> None:
         ASCIIColors.yellow(f"{args.ssl_certfile}")
         ASCIIColors.white("    ├─ SSL Key: ", end="")
         ASCIIColors.yellow(f"{args.ssl_keyfile}")
-    ASCIIColors.white("    ├─ Ollama Emulating Model: ", end="")
-    ASCIIColors.yellow(f"{ollama_server_infos.LIGHTRAG_MODEL}")
     ASCIIColors.white("    ├─ Log Level: ", end="")
     ASCIIColors.yellow(f"{args.log_level}")
     ASCIIColors.white("    ├─ Verbose Debug: ", end="")

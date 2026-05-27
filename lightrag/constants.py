@@ -6,6 +6,7 @@ different parts of the LightRAG system. Centralizing these values ensures
 consistency and makes maintenance easier.
 """
 
+import os
 from typing import Literal, TypeAlias
 
 # Default values for server settings
@@ -240,9 +241,9 @@ PROCESS_OPTION_IMAGES = "i"  # Enable VLM analysis for drawings/images
 PROCESS_OPTION_TABLES = "t"  # Enable VLM analysis for tables
 PROCESS_OPTION_EQUATIONS = "e"  # Enable VLM analysis for equations
 PROCESS_OPTION_SKIP_KG = "!"  # Skip entity/relation extraction (no KG build)
-ProcessChunkingOption: TypeAlias = Literal["F", "R", "V", "P"]
+ProcessChunkingOption: TypeAlias = Literal["F", "R", "V", "P", "S"]
 PROCESS_OPTION_CHUNK_FIXED: ProcessChunkingOption = (
-    "F"  # Fixed-length / separator chunking (default)
+    "F"  # Fixed-length / separator chunking
 )
 PROCESS_OPTION_CHUNK_RECURSIVE: ProcessChunkingOption = (
     "R"  # Recursive semantic chunking
@@ -251,7 +252,10 @@ PROCESS_OPTION_CHUNK_VECTOR: ProcessChunkingOption = (
     "V"  # Vector-driven semantic chunking
 )
 PROCESS_OPTION_CHUNK_PARAGRAH: ProcessChunkingOption = (
-    "P"  # Paragrah-driven semantic chunking
+    "P"  # Paragraph-driven semantic chunking (DOCX native only)
+)
+PROCESS_OPTION_CHUNK_SECTION: ProcessChunkingOption = (
+    "S"  # Section-aware chunking (default for all doc types)
 )
 
 PROCESS_OPTION_CHUNK_CHARS: frozenset[ProcessChunkingOption] = frozenset(
@@ -260,6 +264,7 @@ PROCESS_OPTION_CHUNK_CHARS: frozenset[ProcessChunkingOption] = frozenset(
         PROCESS_OPTION_CHUNK_RECURSIVE,
         PROCESS_OPTION_CHUNK_VECTOR,
         PROCESS_OPTION_CHUNK_PARAGRAH,
+        PROCESS_OPTION_CHUNK_SECTION,
     }
 )
 SUPPORTED_PROCESS_OPTIONS = frozenset(
@@ -272,7 +277,13 @@ SUPPORTED_PROCESS_OPTIONS = frozenset(
         PROCESS_OPTION_CHUNK_RECURSIVE,
         PROCESS_OPTION_CHUNK_VECTOR,
         PROCESS_OPTION_CHUNK_PARAGRAH,
+        PROCESS_OPTION_CHUNK_SECTION,
     }
+)
+
+# Access control feature flag.  Off by default — existing deployments are unaffected.
+ENABLE_ACCESS_CONTROL: bool = (
+    os.getenv("ENABLE_ACCESS_CONTROL", "false").lower() == "true"
 )
 
 DEFAULT_MAX_PARALLEL_ANALYZE = 5  # Multimodal analysis (VLM) concurrency
@@ -325,10 +336,3 @@ DEFAULT_RERANK_TIMEOUT = 30
 DEFAULT_LOG_MAX_BYTES = 10485760  # Default 10MB
 DEFAULT_LOG_BACKUP_COUNT = 5  # Default 5 backups
 DEFAULT_LOG_FILENAME = "lightrag.log"  # Default log filename
-
-# Ollama server configuration defaults
-DEFAULT_OLLAMA_MODEL_NAME = "lightrag"
-DEFAULT_OLLAMA_MODEL_TAG = "latest"
-DEFAULT_OLLAMA_MODEL_SIZE = 7365960935
-DEFAULT_OLLAMA_CREATED_AT = "2024-01-15T00:00:00Z"
-DEFAULT_OLLAMA_DIGEST = "sha256:lightrag"

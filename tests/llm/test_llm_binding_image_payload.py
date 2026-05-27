@@ -90,27 +90,6 @@ async def test_openai_binding_text_only_remains_plain_string():
     assert kwargs["messages"][-1]["content"] == "describe"
 
 
-@pytest.mark.asyncio
-async def test_ollama_binding_attaches_images_to_user_message():
-    from lightrag.llm import ollama as ollama_mod
-
-    fake_client = MagicMock()
-    fake_client.chat = AsyncMock(return_value={"message": {"content": "ok"}})
-    fake_client._client = MagicMock()
-    fake_client._client.aclose = AsyncMock()
-
-    with patch.object(ollama_mod.ollama, "AsyncClient", return_value=fake_client):
-        await ollama_mod._ollama_model_if_cache(
-            model="llava",
-            prompt="describe",
-            image_inputs=[PNG_B64],
-        )
-
-    _, kwargs = fake_client.chat.call_args
-    user_msg = kwargs["messages"][-1]
-    assert user_msg["role"] == "user"
-    assert user_msg["content"] == "describe"
-    assert user_msg["images"] == [PNG_B64]
 
 
 @pytest.mark.asyncio

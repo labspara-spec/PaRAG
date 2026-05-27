@@ -10,7 +10,7 @@ Four roles are currently supported:
 | --- | --- |
 | `EXTRACT` | Entity/relation extraction and entity/relation description summarization. |
 | `KEYWORD` | Query keyword extraction for high-level / low-level keyword generation before retrieval. |
-| `QUERY` | Final QA, regular queries, bypass queries, and the query path of the Ollama-compatible API. |
+| `QUERY` | Final QA, regular queries, bypass queries, and the standard query path. |
 | `VLM` | Multimodal analysis stage for VLM analysis of images, tables, formulas, and similar content. |
 
 If a role has no dedicated configuration, LightRAG uses the base `LLM_*` configuration.
@@ -36,7 +36,7 @@ Common fields:
 
 | Variable | Description |
 | --- | --- |
-| `LLM_BINDING` | Base LLM provider. Supported values are `openai`, `ollama`, `lollms`, `azure_openai`, `bedrock`, and `gemini`. |
+| `LLM_BINDING` | Base LLM provider. Supported values are `openai`, `lollms`, `azure_openai`, `bedrock`, and `gemini`. |
 | `LLM_MODEL` | Base model name. For Azure OpenAI, this is usually the deployment name. |
 | `LLM_BINDING_HOST` | Base provider endpoint. For SDK default endpoints, use the corresponding sentinel, such as `DEFAULT_GEMINI_ENDPOINT` or `DEFAULT_BEDROCK_ENDPOINT`. |
 | `LLM_BINDING_API_KEY` | Base API key. Bedrock does not use this field. |
@@ -95,8 +95,7 @@ Common provider prefixes:
 | Provider | Base option prefix | Role option example |
 | --- | --- | --- |
 | `openai` / `azure_openai` | `OPENAI_LLM_*` | `QUERY_OPENAI_LLM_REASONING_EFFORT` |
-| `ollama` | `OLLAMA_LLM_*` | `EXTRACT_OLLAMA_LLM_NUM_PREDICT` |
-| `lollms` | Uses the Ollama-compatible option set | `QUERY_OLLAMA_LLM_TEMPERATURE` |
+| `lollms` | `LOLLMS_LLM_*` | `QUERY_LOLLMS_LLM_TEMPERATURE` |
 | `bedrock` | `BEDROCK_LLM_*` | `EXTRACT_BEDROCK_LLM_MAX_TOKENS` |
 | `gemini` | `GEMINI_LLM_*` | `VLM_GEMINI_LLM_THINKING_CONFIG` |
 
@@ -135,21 +134,6 @@ If a role's `{ROLE}_LLM_BINDING` differs from the base `LLM_BINDING`, it is a cr
 - If `{ROLE}_LLM_BINDING_HOST` is not set, LightRAG tries to use that provider's default host.
 - Provider options do not inherit base provider options. They start empty and only apply role-specific provider options.
 
-Example: use Ollama as the base for local extraction, then use OpenAI for final answers:
-
-```env
-LLM_BINDING=ollama
-LLM_MODEL=qwen3.5:9b
-LLM_BINDING_HOST=http://localhost:11434
-OLLAMA_LLM_NUM_CTX=32768
-
-QUERY_LLM_BINDING=openai
-QUERY_LLM_MODEL=gpt-5-mini
-QUERY_LLM_BINDING_HOST=https://api.openai.com/v1
-QUERY_LLM_BINDING_API_KEY=your_openai_api_key
-QUERY_OPENAI_LLM_REASONING_EFFORT=minimal
-```
-
 For cross-provider configurations, explicitly setting `{ROLE}_LLM_BINDING_HOST` is recommended to avoid confusion between the default host and the base provider endpoint.
 
 ### Bedrock Authentication Rules
@@ -184,7 +168,6 @@ EXTRACT_BEDROCK_LLM_MAX_TOKENS=2048
 | Provider | Role-level host/base_url | Role-level API key | Authentication limitations |
 | --- | --- | --- | --- |
 | `openai` | Supported, passed to the OpenAI-compatible client through `{ROLE}_LLM_BINDING_HOST`. | Supports `{ROLE}_LLM_BINDING_API_KEY`; when unset within the same provider, it inherits the base `LLM_BINDING_API_KEY`. | Currently mainly API key / Bearer mode. |
-| `ollama` | Supported, passed to the Ollama client through `{ROLE}_LLM_BINDING_HOST`. | Supports `{ROLE}_LLM_BINDING_API_KEY`; when unset within the same provider, it inherits the base key. If no key reaches the lower layer, it falls back to `OLLAMA_API_KEY`. | Bearer header. |
 | `lollms` | Supported, using `{ROLE}_LLM_BINDING_HOST` as `base_url`. | Supports `{ROLE}_LLM_BINDING_API_KEY`; when unset within the same provider, it inherits the base key. | Bearer header. |
 | `azure_openai` | Supported, using `{ROLE}_LLM_BINDING_HOST` as the Azure endpoint. | Supports `{ROLE}_LLM_BINDING_API_KEY`; when unset within the same provider, it inherits the base key and may also fall back to `AZURE_OPENAI_API_KEY`. | `AZURE_OPENAI_API_VERSION` is a global environment variable and does not support role-level overrides. |
 | `bedrock` | Supported, using `{ROLE}_LLM_BINDING_HOST` as `endpoint_url`; `DEFAULT_BEDROCK_ENDPOINT` means letting the AWS SDK choose. | Generic API keys are not supported. | Uses global or role-level SigV4. `AWS_BEARER_TOKEN_BEDROCK` is process-level and cannot be overridden per role. |
@@ -300,27 +283,7 @@ This pattern is not cross-provider because all three roles use the `openai` bind
 
 Note: provider options within the same provider inherit the base `OPENAI_LLM_*`. If the local vLLM server does not support official OpenAI parameters such as `reasoning_effort`, do not set the global `OPENAI_LLM_REASONING_EFFORT`; use role-level variables such as `EXTRACT_OPENAI_LLM_REASONING_EFFORT` and `QUERY_OPENAI_LLM_REASONING_EFFORT` instead.
 
-### 4. One Role Crosses Provider
-
-Suitable when the base uses an official OpenAI model and only keyword extraction uses local Ollama:
-
-```env
-LLM_BINDING=openai
-LLM_MODEL=gpt-5-mini
-LLM_BINDING_HOST=https://api.openai.com/v1
-LLM_BINDING_API_KEY=your_openai_api_key
-OPENAI_LLM_REASONING_EFFORT=medium
-
-KEYWORD_LLM_BINDING=ollama
-KEYWORD_LLM_MODEL=qwen3.5:9b
-KEYWORD_LLM_BINDING_HOST=http://localhost:11434
-KEYWORD_LLM_BINDING_API_KEY=ollama-local-key
-KEYWORD_OLLAMA_LLM_NUM_CTX=32768
-```
-
-For cross-provider configurations, Ollama options do not inherit OpenAI options. For local Ollama, `KEYWORD_LLM_BINDING_API_KEY` can usually use a placeholder value; the current cross-provider validation requires non-Bedrock roles to explicitly provide a role-level API key.
-
-### 5. Specify a Dedicated Multimodal Model for VLM
+### 4. Specify a Dedicated Multimodal Model for VLM
 
 Suitable when text tasks use a cheaper model and multimodal analysis uses a vision-language model:
 
@@ -341,9 +304,9 @@ VLM_LLM_TIMEOUT=240
 
 If VLM uses the same provider and key, `VLM_LLM_BINDING_HOST` and `VLM_LLM_BINDING_API_KEY` can be omitted.
 
-`VLM_PROCESS_ENABLE` is the master switch for multimodal analysis. When `false`, the pipeline emits a warning and skips every multimodal item without invoking the VLM. When `true`, the effective VLM binding (`VLM_LLM_BINDING` if set, otherwise `LLM_BINDING`) must support image inputs. The following providers are vision-capable: `openai`, `azure_openai`, `gemini`, `bedrock`, `ollama`, `anthropic`. `lollms` is rejected at startup because it cannot accept image inputs.
+`VLM_PROCESS_ENABLE` is the master switch for multimodal analysis. When `false`, the pipeline emits a warning and skips every multimodal item without invoking the VLM. When `true`, the effective VLM binding (`VLM_LLM_BINDING` if set, otherwise `LLM_BINDING`) must support image inputs. The following providers are vision-capable: `openai`, `azure_openai`, `gemini`, `bedrock`, `anthropic`. `lollms` is rejected at startup because it cannot accept image inputs.
 
-### 6. Bedrock Role-Level SigV4 Credentials
+### 5. Bedrock Role-Level SigV4 Credentials
 
 Suitable when only one role accesses Bedrock and uses independent IAM/STS credentials:
 
@@ -368,7 +331,7 @@ Do not set `QUERY_LLM_BINDING_API_KEY`; Bedrock rejects that configuration.
 
 ## Caveats
 
-- Within the same provider, provider options such as `OPENAI_LLM_REASONING_EFFORT`, `OPENAI_LLM_MAX_TOKENS`, `OLLAMA_LLM_NUM_CTX`, and `GEMINI_LLM_THINKING_CONFIG` are inherited automatically.
+- Within the same provider, provider options such as `OPENAI_LLM_REASONING_EFFORT`, `OPENAI_LLM_MAX_TOKENS`, and `GEMINI_LLM_THINKING_CONFIG` are inherited automatically.
 - There is currently no clean role-level semantic for "unsetting an inherited provider option". If a model in a same-provider role does not support a base option, explicitly override that option for the role with a supported value, or configure the role as cross-provider and set only the role-specific provider options it supports.
 - `AZURE_OPENAI_DEPLOYMENT` and `AZURE_OPENAI_API_VERSION` for `azure_openai` are global environment variables. If `AZURE_OPENAI_DEPLOYMENT` is set, it may take precedence over the role model name.
 - Gemini Vertex AI mode is controlled by process-level Google environment variables. In the same LightRAG process, some roles cannot use Vertex AI while others use AI Studio API keys.

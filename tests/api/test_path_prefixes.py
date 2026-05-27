@@ -42,13 +42,13 @@ def _isolate_env(monkeypatch):
 
     The lightrag.api.config module loads .env at import time, which can leave
     bindings/hosts/keys in os.environ that mismatch what these tests assume.
-    Clear them, then set the minimal viable defaults (ollama bindings) so
+    Clear them, then set the minimal viable defaults so
     create_app's binding validation passes without touching real services.
     """
     for var in _ENV_VARS_TO_ISOLATE:
         monkeypatch.delenv(var, raising=False)
-    monkeypatch.setenv("LLM_BINDING", "ollama")
-    monkeypatch.setenv("EMBEDDING_BINDING", "ollama")
+    monkeypatch.setenv("LLM_BINDING", "openai")
+    monkeypatch.setenv("EMBEDDING_BINDING", "openai")
 
 
 @pytest.fixture

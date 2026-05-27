@@ -23,11 +23,6 @@ from .constants import (
     DEFAULT_MAX_ENTITY_TOKENS,
     DEFAULT_MAX_RELATION_TOKENS,
     DEFAULT_MAX_TOTAL_TOKENS,
-    DEFAULT_OLLAMA_MODEL_NAME,
-    DEFAULT_OLLAMA_MODEL_TAG,
-    DEFAULT_OLLAMA_MODEL_SIZE,
-    DEFAULT_OLLAMA_CREATED_AT,
-    DEFAULT_OLLAMA_DIGEST,
 )
 
 # use the .env that is inside the current folder
@@ -36,44 +31,41 @@ from .constants import (
 load_dotenv(dotenv_path=".env", override=False)
 
 
-class OllamaServerInfos:
-    def __init__(self, name=None, tag=None):
-        self._lightrag_name = name or os.getenv(
-            "OLLAMA_EMULATING_MODEL_NAME", DEFAULT_OLLAMA_MODEL_NAME
-        )
-        self._lightrag_tag = tag or os.getenv(
-            "OLLAMA_EMULATING_MODEL_TAG", DEFAULT_OLLAMA_MODEL_TAG
-        )
-        self.LIGHTRAG_SIZE = DEFAULT_OLLAMA_MODEL_SIZE
-        self.LIGHTRAG_CREATED_AT = DEFAULT_OLLAMA_CREATED_AT
-        self.LIGHTRAG_DIGEST = DEFAULT_OLLAMA_DIGEST
 
-    @property
-    def LIGHTRAG_NAME(self):
-        return self._lightrag_name
-
-    @LIGHTRAG_NAME.setter
-    def LIGHTRAG_NAME(self, value):
-        self._lightrag_name = value
-
-    @property
-    def LIGHTRAG_TAG(self):
-        return self._lightrag_tag
-
-    @LIGHTRAG_TAG.setter
-    def LIGHTRAG_TAG(self, value):
-        self._lightrag_tag = value
-
-    @property
-    def LIGHTRAG_MODEL(self):
-        return f"{self._lightrag_name}:{self._lightrag_tag}"
-
-
-class TextChunkSchema(TypedDict):
+class TextChunkSchema(TypedDict, total=False):
     tokens: int
     content: str
     full_doc_id: str
     chunk_order_index: int
+    # Section metadata (populated by Strategy S and parser engines)
+    page_number: int | None
+    section_path: list[str]
+    file_name: str
+    file_type: str
+    file_size_bytes: int | None
+    ingested_at: str
+    processed_at: str
+    chunk_char_count: int
+    # Access control (only written when ENABLE_ACCESS_CONTROL=true or explicitly set)
+    visibility: str | None
+    owner: str | None
+    allowed_users: list[str] | None
+    allowed_roles: list[str] | None
+    chunk_allowed_users: list[str] | None
+    chunk_allowed_roles: list[str] | None
+
+
+@dataclass
+class PermissionFilter:
+    """Carries caller identity for post-query access control filtering.
+
+    Build via :func:`lightrag.access_control.build_permission_filter`.
+    Returns ``None`` when access control is disabled, giving callers a
+    zero-cost bypass.
+    """
+
+    current_user: str | None
+    current_roles: list[str]
 
 
 T = TypeVar("T")
@@ -155,6 +147,12 @@ class QueryParam:
     This parameter controls whether the API response includes a references field
     containing citation information for the retrieved content.
     """
+
+    current_user: str | None = None
+    """Caller's user ID for access-control filtering. Ignored when access control is disabled."""
+
+    current_roles: list[str] = field(default_factory=list)
+    """Caller's role list for access-control filtering. Ignored when access control is disabled."""
 
 
 @dataclass
@@ -248,7 +246,11 @@ class BaseVectorStorage(StorageNameSpace, ABC):
 
     @abstractmethod
     async def query(
-        self, query: str, top_k: int, query_embedding: list[float] = None
+        self,
+        query: str,
+        top_k: int,
+        query_embedding: list[float] = None,
+        permission_filter: "PermissionFilter | None" = None,
     ) -> list[dict[str, Any]]:
         """Query the vector storage and retrieve top_k results.
 
@@ -257,6 +259,9 @@ class BaseVectorStorage(StorageNameSpace, ABC):
             top_k: Number of top results to return
             query_embedding: Optional pre-computed embedding for the query.
                            If provided, skips embedding computation for better performance.
+            permission_filter: When access control is enabled, post-filters results
+                             to only chunks the caller is permitted to see.
+                             Pass ``None`` (default) to skip all filtering.
         """
 
     @abstractmethod

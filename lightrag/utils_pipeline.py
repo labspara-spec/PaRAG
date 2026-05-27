@@ -14,11 +14,13 @@ import json
 import os
 import re
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
 from urllib.parse import quote, unquote, urlsplit
 
 from lightrag.base import DocProcessingStatus, DocStatus, DocStatusStorage
+from lightrag.chunk_schema import CHUNK_PERMISSION_FIELDS, normalize_chunk_section_meta
 from lightrag.constants import (
     FULL_DOCS_FORMAT_LIGHTRAG,
     LIGHTRAG_DOC_CONTENT_PREFIX,
@@ -41,6 +43,9 @@ def build_chunks_dict_from_chunking_result(
     *,
     doc_id: str,
     file_path: str,
+    file_size_bytes: int | None = None,
+    ingested_at: str = "",
+    permissions: dict[str, Any] | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Assemble the per-doc chunks dict written into chunks_vdb / text_chunks.
 
@@ -49,7 +54,17 @@ def build_chunks_dict_from_chunking_result(
     to a positional ``chunk-NNN`` derived from ``chunk_order_index``, and
     finally hashing on collision so two entries inside one document never
     overwrite each other.
+
+    New keyword params inject production metadata onto every chunk:
+
+    - ``file_size_bytes``: file size at ingest time (from ``os.stat``).
+    - ``ingested_at``: ISO-8601 timestamp when the document was enqueued.
+    - ``permissions``: document-level ACL dict
+      (``visibility``, ``owner``, ``allowed_users``, ``allowed_roles``).
+      Per-chunk overrides (``chunk_allowed_users``, ``chunk_allowed_roles``)
+      must already be set on individual ``dp`` dicts before calling.
     """
+    processed_at = datetime.now(timezone.utc).isoformat()
     chunks: dict[str, dict[str, Any]] = {}
     for dp in chunking_result:
         chunk_content = dp.get("content", "")
@@ -86,12 +101,32 @@ def build_chunks_dict_from_chunking_result(
                 if key and key not in seen:
                     seen.add(key)
                     seed_cache_list.append(key)
-        chunks[chunk_key] = {
+
+        chunk: dict[str, Any] = {
             **dp,
             "full_doc_id": doc_id,
             "file_path": file_path,
             "llm_cache_list": seed_cache_list,
         }
+
+        # Inject section/file/timing metadata; derives file_name, file_type,
+        # section_path, chunk_char_count from existing fields + new params.
+        normalize_chunk_section_meta(
+            chunk,
+            file_path=file_path,
+            file_size_bytes=file_size_bytes,
+            ingested_at=ingested_at,
+            processed_at=processed_at,
+        )
+
+        # Propagate document-level permissions; per-chunk overrides in dp
+        # (chunk_allowed_users / chunk_allowed_roles) are preserved via **dp.
+        if permissions:
+            for field in CHUNK_PERMISSION_FIELDS:
+                if field not in chunk and field in permissions:
+                    chunk[field] = permissions[field]
+
+        chunks[chunk_key] = chunk
     return chunks
 
 

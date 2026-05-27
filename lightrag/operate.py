@@ -55,6 +55,7 @@ from lightrag.base import (
     QueryContextResult,
 )
 from lightrag.chunk_schema import strip_internal_multimodal_markup_for_extraction
+from lightrag.access_control import build_permission_filter, apply_permission_filter
 from lightrag.prompt import PROMPTS, resolve_entity_extraction_prompt_profile
 from lightrag.constants import (
     GRAPH_FIELD_SEP,
@@ -4138,6 +4139,11 @@ async def _get_vector_context(
         results = await chunks_vdb.query(
             query, top_k=search_top_k, query_embedding=query_embedding
         )
+        pf = build_permission_filter(
+            query_param.current_user,
+            query_param.current_roles,
+        )
+        results = apply_permission_filter(results, pf)
         if not results:
             logger.info(
                 f"Naive query: 0 chunks (chunk_top_k:{search_top_k} cosine:{cosine_threshold})"

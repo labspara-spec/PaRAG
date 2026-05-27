@@ -1018,6 +1018,9 @@ def split_long_block(
                 "parent_headings": current_parent_headings,
                 "_paragraphs": block_paragraphs,  # Keep original paragraphs for potential re-splitting
             }
+            _pnums = [p["page_num"] for p in block_paragraphs if p.get("page_num") is not None]
+            if _pnums:
+                new_block["page_number"] = min(_pnums)
             new_table_headers = _collect_table_headers(block_paragraphs)
             if new_table_headers:
                 new_block["table_headers"] = new_table_headers
@@ -1056,6 +1059,9 @@ def split_long_block(
             "parent_headings": current_parent_headings,
             "_paragraphs": final_paragraphs,  # Keep original paragraphs for potential re-splitting
         }
+        _fpnums = [p["page_num"] for p in final_paragraphs if p.get("page_num") is not None]
+        if _fpnums:
+            final_block["page_number"] = min(_fpnums)
         final_table_headers = _collect_table_headers(final_paragraphs)
         if final_table_headers:
             final_block["table_headers"] = final_table_headers
@@ -1434,6 +1440,9 @@ def _build_unsplit_block(
         "parent_headings": parent_headings,
         "level": level,
     }
+    page_nums = [p["page_num"] for p in paragraphs if p.get("page_num") is not None]
+    if page_nums:
+        block["page_number"] = min(page_nums)
     table_headers = _collect_table_headers(paragraphs)
     if table_headers:
         block["table_headers"] = table_headers
@@ -1537,6 +1546,8 @@ def extract_docx_blocks(
     first_heading_recorded = (
         False  # Track whether the document's first heading has been captured
     )
+    current_page = 1  # 1-based page counter; incremented on page-break elements
+    _W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 
     # Iterate through document body elements (paragraphs and tables)
     body = doc._element.body
@@ -1549,6 +1560,11 @@ def extract_docx_blocks(
             continue
 
         if tag == "p":  # Paragraph
+            # Detect page-break indicators before any early-return.
+            _has_page_break = (
+                element.find(f".//{{{_W}}}lastRenderedPageBreak") is not None
+                or element.find(f".//{{{_W}}}br[@{{{_W}}}type='page']") is not None
+            )
             # Get paragraph text with superscript/subscript markup and equations
             para_text = ""
             ns = {
@@ -1564,6 +1580,8 @@ def extract_docx_blocks(
 
             para_text = para_text.strip()
             if not para_text:
+                if _has_page_break:
+                    current_page += 1
                 continue
 
             # Get numbering label using our resolver
@@ -1633,6 +1651,7 @@ def extract_docx_blocks(
                             "text": truncated_text,
                             "para_id": heading_para_id,
                             "is_table": False,
+                            "page_num": current_page,
                         }
                     )
 
@@ -1662,7 +1681,12 @@ def extract_docx_blocks(
 
                     # Store as regular paragraph with metadata
                     current_paragraphs.append(
-                        {"text": truncated_text, "para_id": para_id, "is_table": False}
+                        {
+                            "text": truncated_text,
+                            "para_id": para_id,
+                            "is_table": False,
+                            "page_num": current_page,
+                        }
                     )
 
                     # Mark that we have body content
@@ -1677,7 +1701,12 @@ def extract_docx_blocks(
 
                 # Store paragraph with metadata for potential splitting
                 current_paragraphs.append(
-                    {"text": full_text, "para_id": para_id, "is_table": False}
+                    {
+                        "text": full_text,
+                        "para_id": para_id,
+                        "is_table": False,
+                        "page_num": current_page,
+                    }
                 )
 
                 # Mark that we have body content
@@ -1695,6 +1724,9 @@ def extract_docx_blocks(
                 if sectPr is not None:
                     # Section break after this paragraph - reset tracking
                     resolver.reset_tracking_state()
+
+            if _has_page_break:
+                current_page += 1
 
         elif tag == "tbl":  # Table
             # Reset numbering tracking before table (table start boundary)
@@ -1774,6 +1806,7 @@ def extract_docx_blocks(
                                 "para_id_end": chunk_para_id_end,  # Store end paraId for uuid_end calculation
                                 "is_table": True,
                                 "_table_header": header_rows_or_none,
+                                "page_num": current_page,
                             }
                         )
                         has_body_content = True
@@ -1821,6 +1854,7 @@ def extract_docx_blocks(
                             "parent_headings": current_parent_headings,
                             "level": current_heading_level,
                             "table_chunk_role": table_chunk_role,
+                            "page_number": current_page,
                         }
 
                         # Always emit a per-table headers list (aligned with the
@@ -1839,6 +1873,7 @@ def extract_docx_blocks(
                                     "is_table": True,
                                     "_chunk_heading": chunk_heading,
                                     "_table_header": header_rows_or_none,
+                                    "page_num": current_page,
                                 }
                             )
                             has_body_content = True
@@ -1862,6 +1897,7 @@ def extract_docx_blocks(
                         "para_id_end": table_para_id_end,  # Store end paraId for uuid_end calculation
                         "is_table": True,
                         "_table_header": header_rows_or_none,
+                        "page_num": current_page,
                     }
                 )
 

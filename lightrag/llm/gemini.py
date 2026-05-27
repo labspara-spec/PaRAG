@@ -140,7 +140,8 @@ def _ensure_api_key(api_key: str | None) -> str:
     if not key:
         raise ValueError(
             "Gemini API key not provided. "
-            "Set LLM_BINDING_API_KEY or GEMINI_API_KEY in the environment."
+            "Set LLM_BINDING_API_KEY or GEMINI_API_KEY, "
+            "or use Vertex AI keyless auth (GOOGLE_GENAI_USE_VERTEXAI=true)."
         )
     return key
 

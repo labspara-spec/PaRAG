@@ -156,10 +156,28 @@ def create_openai_async_client(
             client_configs = {}
 
         # Create a merged config dict with precedence: explicit params > client_configs
-        merged_configs = {
-            **client_configs,
-            "api_key": api_key,
-        }
+        merged_configs = {**client_configs}
+
+        if api_key:
+            merged_configs["api_key"] = api_key
+        else:
+            # Keyless: DefaultAzureCredential chain (managed identity, workload identity,
+            # Azure CLI, environment variables, etc.)
+            try:
+                from azure.identity import (
+                    DefaultAzureCredential,
+                    get_bearer_token_provider,
+                )
+            except ImportError as exc:
+                raise ImportError(
+                    "azure-identity is required for keyless Azure OpenAI auth. "
+                    "Install with: pip install azure-identity"
+                ) from exc
+            token_provider = get_bearer_token_provider(
+                DefaultAzureCredential(),
+                "https://cognitiveservices.azure.com/.default",
+            )
+            merged_configs["azure_ad_token_provider"] = token_provider
 
         # Add explicit parameters (override client_configs)
         if base_url is not None:

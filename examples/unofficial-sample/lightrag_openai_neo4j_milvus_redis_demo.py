@@ -1,7 +1,7 @@
 import os
 import asyncio
 from lightrag import LightRAG, QueryParam
-from lightrag.llm.ollama import ollama_embed, openai_complete_if_cache
+from lightrag.llm.openai import openai_complete_if_cache, openai_embed
 from lightrag.utils import EmbeddingFunc
 
 # WorkingDir
@@ -43,10 +43,10 @@ async def llm_model_func(
 
 
 embedding_func = EmbeddingFunc(
-    embedding_dim=768,
+    embedding_dim=3072,
     max_token_size=512,
-    func=lambda texts: ollama_embed(
-        texts, embed_model="shaw/dmeta-embedding-zh", host="http://117.50.173.35:11434"
+    func=lambda texts: openai_embed(
+        texts, model="text-embedding-3-large", api_key=os.getenv("OPENAI_API_KEY", "")
     ),
 )
 

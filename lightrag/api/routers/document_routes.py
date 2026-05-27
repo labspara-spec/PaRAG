@@ -238,6 +238,11 @@ class InsertTextRequest(BaseModel):
     Attributes:
         text: The text content to be inserted into the RAG system
         file_source: Source of the text (optional)
+        visibility: Access control label (public/internal/restricted/confidential).
+            Only enforced when ENABLE_ACCESS_CONTROL=true.
+        owner: User ID of the document owner (always has read access).
+        allowed_users: List of user IDs allowed to read this document.
+        allowed_roles: List of role names allowed to read this document.
     """
 
     text: str = Field(
@@ -246,6 +251,19 @@ class InsertTextRequest(BaseModel):
     )
     file_source: Optional[str] = Field(
         default=None, min_length=0, description="File Source"
+    )
+    visibility: Optional[str] = Field(
+        default=None,
+        description="Access control visibility label (public/internal/restricted/confidential)",
+    )
+    owner: Optional[str] = Field(
+        default=None, description="Owner user ID (always has read access)"
+    )
+    allowed_users: Optional[list[str]] = Field(
+        default=None, description="User IDs allowed to read this document"
+    )
+    allowed_roles: Optional[list[str]] = Field(
+        default=None, description="Role names allowed to read this document"
     )
 
     @field_validator("text", mode="after")
@@ -263,6 +281,10 @@ class InsertTextRequest(BaseModel):
             "example": {
                 "text": "This is a sample text to be inserted into the RAG system.",
                 "file_source": "Source of the text (optional)",
+                "visibility": "internal",
+                "owner": "user-42",
+                "allowed_users": ["user-42", "user-17"],
+                "allowed_roles": ["researchers"],
             }
         }
     )
@@ -274,6 +296,10 @@ class InsertTextsRequest(BaseModel):
     Attributes:
         texts: List of text contents to be inserted into the RAG system
         file_sources: Sources of the texts (optional)
+        visibility: Access control label applied to all documents in the batch.
+        owner: Owner user ID applied to all documents.
+        allowed_users: User IDs allowed to read all documents in the batch.
+        allowed_roles: Role names allowed to read all documents in the batch.
     """
 
     texts: list[str] = Field(
@@ -282,6 +308,19 @@ class InsertTextsRequest(BaseModel):
     )
     file_sources: Optional[list[str]] = Field(
         default=None, min_length=0, description="Sources of the texts"
+    )
+    visibility: Optional[str] = Field(
+        default=None,
+        description="Access control visibility label (public/internal/restricted/confidential)",
+    )
+    owner: Optional[str] = Field(
+        default=None, description="Owner user ID (always has read access)"
+    )
+    allowed_users: Optional[list[str]] = Field(
+        default=None, description="User IDs allowed to read these documents"
+    )
+    allowed_roles: Optional[list[str]] = Field(
+        default=None, description="Role names allowed to read these documents"
     )
 
     @field_validator("texts", mode="after")
@@ -309,6 +348,8 @@ class InsertTextsRequest(BaseModel):
                 "file_sources": [
                     "First file source (optional)",
                 ],
+                "visibility": "internal",
+                "allowed_roles": ["researchers"],
             }
         }
     )
@@ -2169,6 +2210,7 @@ async def pipeline_index_texts(
     texts: List[str],
     file_sources: List[str] = None,
     track_id: str = None,
+    permissions: dict | None = None,
 ):
     """Index a list of texts with track_id
 
@@ -2177,6 +2219,8 @@ async def pipeline_index_texts(
         texts: The texts to index
         file_sources: Sources of the texts
         track_id: Optional tracking ID
+        permissions: Optional document-level ACL dict
+            (visibility, owner, allowed_users, allowed_roles).
     """
     if not texts:
         return
@@ -2194,7 +2238,7 @@ async def pipeline_index_texts(
         input=texts,
         file_paths=normalized_file_sources,
         track_id=track_id,
-        process_options=PROCESS_OPTION_CHUNK_FIXED,
+        permissions=permissions,
     )
     await rag.apipeline_process_enqueue_documents()
 
@@ -3083,6 +3127,16 @@ def create_document_routes(
             # Generate track_id for text insertion
             track_id = generate_track_id("insert")
 
+            _req_permissions: dict | None = None
+            _perm_fields = {
+                "visibility": request.visibility,
+                "owner": request.owner,
+                "allowed_users": request.allowed_users,
+                "allowed_roles": request.allowed_roles,
+            }
+            if any(v is not None for v in _perm_fields.values()):
+                _req_permissions = _perm_fields
+
             async def _indexing_task():
                 try:
                     await pipeline_index_texts(
@@ -3090,6 +3144,7 @@ def create_document_routes(
                         [request.text],
                         file_sources=[normalized_file_source],
                         track_id=track_id,
+                        permissions=_req_permissions,
                     )
                 finally:
                     await _release_enqueue_slot(rag)
@@ -3196,6 +3251,16 @@ def create_document_routes(
             # Generate track_id for texts insertion
             track_id = generate_track_id("insert")
 
+            _req_permissions_batch: dict | None = None
+            _perm_fields_batch = {
+                "visibility": request.visibility,
+                "owner": request.owner,
+                "allowed_users": request.allowed_users,
+                "allowed_roles": request.allowed_roles,
+            }
+            if any(v is not None for v in _perm_fields_batch.values()):
+                _req_permissions_batch = _perm_fields_batch
+
             async def _indexing_task():
                 try:
                     await pipeline_index_texts(
@@ -3203,6 +3268,7 @@ def create_document_routes(
                         request.texts,
                         file_sources=normalized_file_sources,
                         track_id=track_id,
+                        permissions=_req_permissions_batch,
                     )
                 finally:
                     await _release_enqueue_slot(rag)
