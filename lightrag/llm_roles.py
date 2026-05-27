@@ -54,6 +54,7 @@ ROLES: tuple[RoleSpec, ...] = (
     RoleSpec("keyword", "KEYWORD", "keyword LLM func"),
     RoleSpec("query", "QUERY", "query LLM func"),
     RoleSpec("vlm", "VLM", "vlm LLM func"),
+    RoleSpec("intent", "INTENT", "intent LLM func"),
 )
 ROLE_NAMES: frozenset[str] = frozenset(spec.name for spec in ROLES)
 ROLES_BY_NAME: dict[str, RoleSpec] = {spec.name: spec for spec in ROLES}

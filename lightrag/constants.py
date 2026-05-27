@@ -346,3 +346,31 @@ DEFAULT_RERANK_TIMEOUT = 30
 DEFAULT_LOG_MAX_BYTES = 10485760  # Default 10MB
 DEFAULT_LOG_BACKUP_COUNT = 5  # Default 5 backups
 DEFAULT_LOG_FILENAME = "lightrag.log"  # Default log filename
+
+# ---------------------------------------------------------------------------
+# Guardrail defaults
+# ---------------------------------------------------------------------------
+
+DEFAULT_GUARDRAILS_ENABLED = False
+DEFAULT_INTENT_CLASSIFICATION_ENABLED = False
+
+# Input guard
+DEFAULT_GUARDRAIL_INPUT_ENABLED = True
+DEFAULT_GUARDRAIL_INPUT_MAX_LENGTH = 32_768
+DEFAULT_GUARDRAIL_INPUT_PII_CHECK = True
+DEFAULT_GUARDRAIL_INPUT_LLM_CHECK = False
+
+# Context guard (indirect injection in retrieved content)
+DEFAULT_GUARDRAIL_CONTEXT_ENABLED = True
+DEFAULT_GUARDRAIL_CONTEXT_LLM_CHECK = False
+DEFAULT_GUARDRAIL_CONTEXT_BLOCK_ON_FIRST = False
+
+# Output guard
+DEFAULT_GUARDRAIL_OUTPUT_ENABLED = True
+DEFAULT_GUARDRAIL_OUTPUT_APP_RISKS = True
+DEFAULT_GUARDRAIL_OUTPUT_CONTENT_RISKS = True
+DEFAULT_GUARDRAIL_OUTPUT_LLM_CHECK = False
+
+# Intent classifier
+DEFAULT_INTENT_CONFIDENCE_THRESHOLD = 0.65
+DEFAULT_INTENT_LLM_TIMEOUT = 10  # seconds — small model, fast call

@@ -545,6 +545,19 @@ class LightRAG(_RoleLLMMixin, _StorageMigrationMixin, _PipelineMixin):
     Obtain via ``get_cloud_provider()`` from ``lightrag.storage.cloud``.
     """
 
+    guardrails: Any = field(default=None)
+    """Optional GuardrailPipeline instance.
+
+    When set, enforces OWASP AITG controls at each query phase:
+      - Input guard  (AITG-APP-01/03): prompt injection + PII detection
+      - Intent classification: routes to bypass mode for non-RAG queries
+      - Context guard (AITG-APP-02): indirect injection in retrieved chunks
+      - Output guard  (AITG-APP-05/12): unsafe / toxic output filtering
+
+    Build via ``GuardrailPipeline.from_config(GuardrailConfig(...))`` from
+    ``lightrag.guardrails``.
+    """
+
     # Extensions
     # ---
 
@@ -820,14 +833,19 @@ class LightRAG(_RoleLLMMixin, _StorageMigrationMixin, _PipelineMixin):
 
     def _build_global_config(self) -> dict[str, Any]:
         self._ensure_addon_params_cache()
-        # Temporarily null out cloud_provider so asdict() doesn't deep-copy it.
-        # asdict() deep-copies non-dataclass fields; providers with live connections fail.
+        # Temporarily null out non-serialisable fields so asdict() doesn't
+        # deep-copy live connections or callable pipelines.
         saved_provider = self.cloud_provider
+        saved_guardrails = self.guardrails
         if saved_provider is not None:
             self.cloud_provider = None
+        if saved_guardrails is not None:
+            self.guardrails = None
         global_config = asdict(self)
         if saved_provider is not None:
             self.cloud_provider = saved_provider
+        if saved_guardrails is not None:
+            self.guardrails = saved_guardrails
         global_config.pop("_addon_params", None)
         global_config.pop("_addon_params_dirty", None)
         global_config.pop("_cached_entity_extraction_use_json", None)
@@ -839,6 +857,13 @@ class LightRAG(_RoleLLMMixin, _StorageMigrationMixin, _PipelineMixin):
         # so pop cloud_provider and restore image_embedding_func as the live object.
         global_config["image_embedding_func"] = self.image_embedding_func
         global_config.pop("cloud_provider", None)
+        global_config.pop("guardrails", None)
+        # Inject context guard hook for indirect injection detection in kg_query / naive_query.
+        if saved_guardrails is not None:
+            context_guard_fn = saved_guardrails.get_context_guard_func()
+            global_config["context_guard_func"] = context_guard_fn
+        else:
+            global_config["context_guard_func"] = None
         # Inject runtime per-role wrapped LLM funcs (callable; not part of asdict
         # because they live in the private _role_llm_states map). The first
         # _build_global_config() call from __post_init__ runs before the role
@@ -2172,6 +2197,29 @@ class LightRAG(_RoleLLMMixin, _StorageMigrationMixin, _PipelineMixin):
         """
         logger.debug(f"[aquery_llm] Query param: {param}")
 
+        # Phase 1 — Input guard (AITG-APP-01, AITG-APP-03)
+        if self.guardrails is not None:
+            try:
+                await self.guardrails.check_input(query)
+            except Exception as guard_err:
+                from lightrag.guardrails.base import GuardrailViolationError
+                if isinstance(guard_err, GuardrailViolationError):
+                    raise
+                logger.warning(f"[aquery_llm] Input guard error (non-fatal): {guard_err}")
+
+        # Phase 2 — Intent classification (route to bypass for non-RAG queries)
+        if self.guardrails is not None and param.mode not in ("bypass",):
+            try:
+                intent = await self.guardrails.classify_intent(query)
+                if intent == "direct":
+                    logger.debug("[aquery_llm] Intent=direct → switching to bypass mode")
+                    param = replace(param, mode="bypass")
+            except Exception as guard_err:
+                from lightrag.guardrails.base import GuardrailViolationError
+                if isinstance(guard_err, GuardrailViolationError):
+                    raise
+                logger.warning(f"[aquery_llm] Intent classifier error (non-fatal): {guard_err}")
+
         global_config = self._build_global_config()
 
         try:
@@ -2268,10 +2316,20 @@ class LightRAG(_RoleLLMMixin, _StorageMigrationMixin, _PipelineMixin):
 
             # Extract structured data from query result
             raw_data = query_result.raw_data or {}
+
+            # Phase 4 — Output guard (AITG-APP-05, AITG-APP-12) — non-streaming only
+            content = query_result.content if not query_result.is_streaming else None
+            if content and self.guardrails is not None:
+                try:
+                    content = await self.guardrails.check_output(content)
+                except Exception as guard_err:
+                    from lightrag.guardrails.base import GuardrailViolationError
+                    if isinstance(guard_err, GuardrailViolationError):
+                        raise
+                    logger.warning(f"[aquery_llm] Output guard error (non-fatal): {guard_err}")
+
             raw_data["llm_response"] = {
-                "content": query_result.content
-                if not query_result.is_streaming
-                else None,
+                "content": content if not query_result.is_streaming else None,
                 "response_iterator": query_result.response_iterator
                 if query_result.is_streaming
                 else None,

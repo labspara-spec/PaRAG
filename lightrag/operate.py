@@ -3775,6 +3775,18 @@ async def kg_query(
         except Exception as _img_err:
             logger.debug(f"[kg_query] Image VDB search failed (non-fatal): {_img_err}")
 
+    # Phase 3 — Context guard (AITG-APP-02: indirect injection in retrieved context)
+    _context_guard = global_config.get("context_guard_func")
+    if _context_guard is not None and context_result.context:
+        try:
+            await _context_guard(context_result.context)
+        except Exception as _cg_err:
+            # Re-raise GuardrailViolationError; swallow unexpected errors
+            from lightrag.guardrails.base import GuardrailViolationError as _GVE
+            if isinstance(_cg_err, _GVE):
+                raise
+            logger.warning(f"[kg_query] Context guard error (non-fatal): {_cg_err}")
+
     # Return different content based on query parameters
     if query_param.only_need_context and not query_param.only_need_prompt:
         return QueryResult(
@@ -5791,6 +5803,17 @@ async def naive_query(
         text_chunks_str=text_units_str,
         reference_list_str=reference_list_str,
     )
+
+    # Phase 3 — Context guard (AITG-APP-02) for naive_query
+    _context_guard_naive = global_config.get("context_guard_func")
+    if _context_guard_naive is not None and context_content:
+        try:
+            await _context_guard_naive(context_content)
+        except Exception as _cg_err:
+            from lightrag.guardrails.base import GuardrailViolationError as _GVE
+            if isinstance(_cg_err, _GVE):
+                raise
+            logger.warning(f"[naive_query] Context guard error (non-fatal): {_cg_err}")
 
     if query_param.only_need_context and not query_param.only_need_prompt:
         return QueryResult(content=context_content, raw_data=raw_data)

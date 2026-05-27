@@ -46,6 +46,20 @@ from lightrag.constants import (
     DEFAULT_POOL_CLEANUP_INTERVAL,
     DEFAULT_WORKER_INSTANCE_CACHE_SIZE,
     DEFAULT_WORKER_IDLE_TIMEOUT,
+    DEFAULT_GUARDRAILS_ENABLED,
+    DEFAULT_INTENT_CLASSIFICATION_ENABLED,
+    DEFAULT_GUARDRAIL_INPUT_ENABLED,
+    DEFAULT_GUARDRAIL_INPUT_MAX_LENGTH,
+    DEFAULT_GUARDRAIL_INPUT_PII_CHECK,
+    DEFAULT_GUARDRAIL_INPUT_LLM_CHECK,
+    DEFAULT_GUARDRAIL_CONTEXT_ENABLED,
+    DEFAULT_GUARDRAIL_CONTEXT_LLM_CHECK,
+    DEFAULT_GUARDRAIL_CONTEXT_BLOCK_ON_FIRST,
+    DEFAULT_GUARDRAIL_OUTPUT_ENABLED,
+    DEFAULT_GUARDRAIL_OUTPUT_APP_RISKS,
+    DEFAULT_GUARDRAIL_OUTPUT_CONTENT_RISKS,
+    DEFAULT_GUARDRAIL_OUTPUT_LLM_CHECK,
+    DEFAULT_INTENT_CONFIDENCE_THRESHOLD,
 )
 
 # use the .env that is inside the current folder
@@ -869,3 +883,79 @@ class _GlobalArgsProxy:
 # Existing code like `from config import global_args` continues to work
 # The proxy will auto-initialize on first attribute access
 global_args = _GlobalArgsProxy()
+
+
+def get_guardrail_config():
+    """Build a GuardrailConfig from environment variables.
+
+    Environment variables (all optional, sensible defaults apply):
+      GUARDRAILS_ENABLED                bool  master switch (default false)
+      INTENT_CLASSIFICATION_ENABLED     bool  RAG vs direct routing (default false)
+      GUARDRAIL_INPUT_ENABLED           bool
+      GUARDRAIL_INPUT_MAX_LENGTH        int
+      GUARDRAIL_INPUT_PII_CHECK         bool
+      GUARDRAIL_INPUT_LLM_CHECK         bool
+      GUARDRAIL_CONTEXT_ENABLED         bool
+      GUARDRAIL_CONTEXT_LLM_CHECK       bool
+      GUARDRAIL_CONTEXT_BLOCK_ON_FIRST  bool
+      GUARDRAIL_OUTPUT_ENABLED          bool
+      GUARDRAIL_OUTPUT_APP_RISKS        bool
+      GUARDRAIL_OUTPUT_CONTENT_RISKS    bool
+      GUARDRAIL_OUTPUT_LLM_CHECK        bool
+      INTENT_CONFIDENCE_THRESHOLD       float
+
+    Returns None when GUARDRAILS_ENABLED is false (the common case).
+    """
+    from lightrag.guardrails import GuardrailConfig
+
+    enabled = get_env_value("GUARDRAILS_ENABLED", DEFAULT_GUARDRAILS_ENABLED, bool)
+    if not enabled:
+        return None
+
+    return GuardrailConfig(
+        input_guard_enabled=get_env_value(
+            "GUARDRAIL_INPUT_ENABLED", DEFAULT_GUARDRAIL_INPUT_ENABLED, bool
+        ),
+        input_max_length=get_env_value(
+            "GUARDRAIL_INPUT_MAX_LENGTH", DEFAULT_GUARDRAIL_INPUT_MAX_LENGTH, int
+        ),
+        input_pii_check=get_env_value(
+            "GUARDRAIL_INPUT_PII_CHECK", DEFAULT_GUARDRAIL_INPUT_PII_CHECK, bool
+        ),
+        input_llm_check=get_env_value(
+            "GUARDRAIL_INPUT_LLM_CHECK", DEFAULT_GUARDRAIL_INPUT_LLM_CHECK, bool
+        ),
+        context_guard_enabled=get_env_value(
+            "GUARDRAIL_CONTEXT_ENABLED", DEFAULT_GUARDRAIL_CONTEXT_ENABLED, bool
+        ),
+        context_llm_check=get_env_value(
+            "GUARDRAIL_CONTEXT_LLM_CHECK", DEFAULT_GUARDRAIL_CONTEXT_LLM_CHECK, bool
+        ),
+        context_block_on_first_match=get_env_value(
+            "GUARDRAIL_CONTEXT_BLOCK_ON_FIRST",
+            DEFAULT_GUARDRAIL_CONTEXT_BLOCK_ON_FIRST,
+            bool,
+        ),
+        output_guard_enabled=get_env_value(
+            "GUARDRAIL_OUTPUT_ENABLED", DEFAULT_GUARDRAIL_OUTPUT_ENABLED, bool
+        ),
+        output_application_risks=get_env_value(
+            "GUARDRAIL_OUTPUT_APP_RISKS", DEFAULT_GUARDRAIL_OUTPUT_APP_RISKS, bool
+        ),
+        output_content_risks=get_env_value(
+            "GUARDRAIL_OUTPUT_CONTENT_RISKS", DEFAULT_GUARDRAIL_OUTPUT_CONTENT_RISKS, bool
+        ),
+        output_llm_check=get_env_value(
+            "GUARDRAIL_OUTPUT_LLM_CHECK", DEFAULT_GUARDRAIL_OUTPUT_LLM_CHECK, bool
+        ),
+        intent_classification_enabled=get_env_value(
+            "INTENT_CLASSIFICATION_ENABLED",
+            DEFAULT_INTENT_CLASSIFICATION_ENABLED,
+            bool,
+        ),
+        intent_confidence_threshold=get_env_value(
+            "INTENT_CONFIDENCE_THRESHOLD",
+            DEFAULT_INTENT_CONFIDENCE_THRESHOLD,
+            float,
+        ),
+    )

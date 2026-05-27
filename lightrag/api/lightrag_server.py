@@ -2152,6 +2152,26 @@ def create_app(args):
             raise
         await instance.initialize_storages()
         await instance.check_and_migrate_data()
+
+        # Build guardrail pipeline when enabled (GUARDRAILS_ENABLED=true)
+        from lightrag.api.config import get_guardrail_config
+        from lightrag.guardrails import GuardrailPipeline
+
+        _guardrail_cfg = get_guardrail_config()
+        if _guardrail_cfg is not None:
+            _intent_func = instance.role_llm_funcs.get("intent")
+            instance.guardrails = GuardrailPipeline.from_config(
+                _guardrail_cfg,
+                intent_llm_func=_intent_func,
+            )
+            logger.info(
+                "[guardrails] Pipeline enabled: input=%s context=%s output=%s intent=%s",
+                _guardrail_cfg.input_guard_enabled,
+                _guardrail_cfg.context_guard_enabled,
+                _guardrail_cfg.output_guard_enabled,
+                _guardrail_cfg.intent_classification_enabled,
+            )
+
         instance.register_role_llm_builder(
             lambda role, meta: (
                 create_role_llm_func(role, meta),

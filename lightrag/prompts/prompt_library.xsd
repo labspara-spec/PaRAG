@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  XML Schema for PaRAG POML Prompt Library files.
+
+  Reference from each prompt XML file:
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="prompt_library.xsd"
+
+  Validated automatically by VS Code (XML extension), IntelliJ, and
+  any XSD 1.0-compliant editor/linter.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <!-- =====================================================================
+       Root: <prompt_library version="1.0" domain="...">
+       ===================================================================== -->
+  <xs:element name="prompt_library">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="constants" minOccurs="0" maxOccurs="1"
+                    type="ConstantsType"/>
+        <xs:element name="prompt"    minOccurs="0" maxOccurs="unbounded"
+                    type="PromptType"/>
+      </xs:sequence>
+      <xs:attribute name="version" type="xs:string" use="required"/>
+      <xs:attribute name="domain"  type="xs:string" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- =====================================================================
+       <constants> block — short single-value entries
+       ===================================================================== -->
+  <xs:complexType name="ConstantsType">
+    <xs:sequence>
+      <xs:element name="const" maxOccurs="unbounded" type="ConstType"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- <const id="KEY" value="VALUE"/> -->
+  <xs:complexType name="ConstType" mixed="true">
+    <xs:attribute name="id"    type="xs:string" use="required"/>
+    <xs:attribute name="value" type="xs:string"/>
+  </xs:complexType>
+
+  <!-- =====================================================================
+       <prompt> — one entry in the prompt library
+       ===================================================================== -->
+  <xs:complexType name="PromptType">
+    <xs:sequence>
+      <!-- Optional documentation / variable declarations -->
+      <xs:element name="meta" minOccurs="0" maxOccurs="1" type="MetaType"/>
+      <!-- Body: either a single <content> OR one-or-more <item> elements -->
+      <xs:choice minOccurs="0">
+        <xs:element name="content" type="xs:string"/>
+        <xs:element name="item"    maxOccurs="unbounded" type="ItemType"/>
+      </xs:choice>
+    </xs:sequence>
+    <!-- id: PROMPTS dict key -->
+    <xs:attribute name="id"   type="xs:string"    use="required"/>
+    <!-- type: semantic role of this prompt -->
+    <xs:attribute name="type" type="PromptTypeEnum" use="required"/>
+    <!-- role: which LLM role consumes this prompt -->
+    <xs:attribute name="role" type="RoleEnum"/>
+  </xs:complexType>
+
+  <!-- =====================================================================
+       <meta> — documentation block (not used by loader at runtime)
+       ===================================================================== -->
+  <xs:complexType name="MetaType">
+    <xs:sequence>
+      <xs:element name="description" type="xs:string"    minOccurs="0"/>
+      <xs:element name="variables"   type="VariablesType" minOccurs="0"/>
+      <xs:element name="aitg_controls" type="xs:string"  minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- =====================================================================
+       <variables> — declares every {field} the template accepts
+       Validated at load time: undeclared fields → ValueError
+       ===================================================================== -->
+  <xs:complexType name="VariablesType">
+    <xs:sequence>
+      <xs:element name="var" maxOccurs="unbounded" type="VarType"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="VarType">
+    <xs:attribute name="name"     type="xs:string"  use="required"/>
+    <xs:attribute name="type"     type="xs:string"/>
+    <xs:attribute name="required" type="xs:boolean"/>
+    <xs:attribute name="default"  type="xs:string"/>
+  </xs:complexType>
+
+  <!-- =====================================================================
+       <item index="N"> — one element of an examples list
+       ===================================================================== -->
+  <xs:complexType name="ItemType">
+    <xs:simpleContent>
+      <xs:extension base="xs:string">
+        <xs:attribute name="index" type="xs:nonNegativeInteger" use="required"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+
+  <!-- =====================================================================
+       Enumerations
+       ===================================================================== -->
+
+  <xs:simpleType name="PromptTypeEnum">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="system"/>    <!-- LLM system-turn prompt -->
+      <xs:enumeration value="user"/>      <!-- LLM user-turn prompt -->
+      <xs:enumeration value="template"/>  <!-- Formatted context block -->
+      <xs:enumeration value="constant"/>  <!-- Multi-line constant value -->
+      <xs:enumeration value="examples"/>  <!-- list[str] of worked examples -->
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="RoleEnum">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="extract"/>   <!-- entity / relationship extraction -->
+      <xs:enumeration value="query"/>     <!-- RAG answer generation -->
+      <xs:enumeration value="keyword"/>   <!-- keyword extraction -->
+      <xs:enumeration value="intent"/>    <!-- guardrail / intent classification -->
+      <xs:enumeration value="vlm"/>       <!-- multimodal / vision analysis -->
+    </xs:restriction>
+  </xs:simpleType>
+
+</xs:schema>
